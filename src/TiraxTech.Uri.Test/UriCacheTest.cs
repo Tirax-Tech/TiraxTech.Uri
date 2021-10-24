@@ -15,7 +15,7 @@ public sealed class UriCacheTest
         uri.Should().Be(uri2);
         uri.Should().Be(new System.Uri(testUri));
         uri.Should().Be(testUri);
-        uri.Should().Be(uri3.Cache());
+        uri.Should().Be(uri3.Cached());
 
         uri.SystemUri.Should().Be(new System.Uri(testUri));
         uri.Uri.Should().Be(uri2.Uri);

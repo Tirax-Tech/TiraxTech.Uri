@@ -25,3 +25,8 @@ public readonly struct UriCache
 
     public override int GetHashCode() => SystemUri.GetHashCode();
 }
+
+public static class UriCacheExtension
+{
+    public static UriCache Cached(this Uri uri) => UriCache.From(uri);
+}

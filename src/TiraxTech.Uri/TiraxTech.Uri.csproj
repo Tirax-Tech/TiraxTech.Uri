@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <TargetFramework>net5.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>TiraxTech</RootNamespace>
     <Title>Immutable URI</Title>
@@ -10,6 +9,9 @@
     <Description>Customizable, Immutable URI record</Description>
     <PackageLicenseUrl>https://mit-license.org/</PackageLicenseUrl>
     <PackageTags>uri</PackageTags>
+    <Company>Tirax Tech</Company>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <LangVersion>default</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

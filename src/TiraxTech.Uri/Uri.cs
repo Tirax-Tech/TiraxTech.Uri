@@ -1,4 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using LanguageExt;
 using static LanguageExt.Prelude;
 using SystemUri = System.Uri;
@@ -52,8 +55,6 @@ public sealed record Uri(
 
     public Uri SetPort(int port) => this with { Port = port };
     public Uri SetFragment(string? fragment = null) => this with { Fragment = fragment };
-    
-    public UriCache Cache() => UriCache.From(this);
 
 #region Path methods
 

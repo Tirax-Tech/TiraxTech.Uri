@@ -42,3 +42,16 @@ Console.WriteLine(searchWine);      // https://example.org:443/api/search?q=wine
 Console.WriteLine(searchSpecial);   // https://example.org:443/api/search/special?q=wine
 Console.WriteLine(searchMerlot);    // https://example.org:443/api/v2/search?q=wine&type=merlot
 ```
+
+## UriCache ##
+
+Since `TiraxTech.Uri` composes URI string everytime the method `ToString()` or `ToSystemUri()`
+is called.  You may want to use `Cached()` extension method to cache the composed URI.
+
+```c#
+using TiraxTech;
+
+var cached = Uri.Https.Host("google.com").Cached();
+
+Console.WriteLine(cached.ToString());  // use cached version
+```
