@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TiraxTech</RootNamespace>
+    <Title>Immutable URI</Title>
+    <Authors>Ruxo Zheng</Authors>
+    <Description>Customizable, Immutable URI record</Description>
+    <PackageLicenseUrl>https://mit-license.org/</PackageLicenseUrl>
+    <PackageTags>uri</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LanguageExt.Core" Version="4.0.3" />
+  </ItemGroup>
+
+</Project>

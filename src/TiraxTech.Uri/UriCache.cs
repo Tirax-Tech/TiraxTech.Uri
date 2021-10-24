@@ -1,0 +1,27 @@
+﻿// ReSharper disable MemberCanBePrivate.Global
+namespace TiraxTech;
+
+public readonly struct UriCache
+{
+    public UriCache(Uri uri){
+        Uri = uri;
+        SystemUri = uri.ToSystemUri();
+    }
+
+    public Uri Uri{ get; }
+    public System.Uri SystemUri{ get; }
+
+    public static UriCache From(string uri) => new(uri);
+    public static UriCache From(Uri uri) => new(uri);
+    public override string ToString() => SystemUri.ToString();
+
+    public override bool Equals(object? obj) =>
+        obj switch
+        { UriCache cache => cache.SystemUri == SystemUri,
+          System.Uri uri => uri == SystemUri,
+          Uri uri        => Uri == uri,
+          string s       => Uri == s,
+          _              => false };
+
+    public override int GetHashCode() => SystemUri.GetHashCode();
+}
