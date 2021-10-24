@@ -20,6 +20,16 @@ public sealed record Uri(
 )
 {
     const char PathSeparator = '/';
+
+    public static readonly GenericUriBuilder Http = new("http");
+    public static readonly GenericUriBuilder Https = new("https");
+    public static readonly GenericUriBuilder Ws = new("ws");
+    public static readonly GenericUriBuilder Wss = new("wss");
+    public static readonly GenericUriBuilder Ftp = new("ftp");
+    public static readonly GenericUriBuilder Ldap = new("ldap");
+    public static readonly GenericUriBuilder NetTcp = new("net.tcp");
+    public static readonly GenericUriBuilder NetPipe = new("net.pipe");
+    public static readonly FileUriBuilder File = new();
     
     public static Uri From(string uri){
         var builder = new UriBuilder(uri);
@@ -40,6 +50,7 @@ public sealed record Uri(
 
     public static implicit operator Uri(string uri) => From(uri);
 
+    public Uri SetPort(int port) => this with { Port = port };
     public Uri SetFragment(string? fragment = null) => this with { Fragment = fragment };
     
     public UriCache Cache() => UriCache.From(this);
@@ -69,15 +80,12 @@ public sealed record Uri(
 
 #region URI Query Parameters
 
-    public string? Query(string key) => FindQuery(key)?.Value;
+    public string? Query(string key) => FindQuery(QueryParams, key)?.Value;
 
-    public Uri SetQuery(string key, string? value = null){
-        var item = FindQuery(key);
-        var q = QueryParams;
-        if (item != null) q = q.Remove(item.Value);
-        if (value != null) q = q.Add((key, value));
-        return this with { QueryParams = q };
-    }
+    public Uri SetQuery(string key, string? value = null) => this with { QueryParams = UpdateQuery(QueryParams, key, value) };
+
+    public Uri SetQuery(params (string Key, string Value)[] @params) =>
+        this with { QueryParams = @params.Aggregate(QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
     
     public Uri ClearQuery() => this with { QueryParams = Empty };
 
@@ -88,8 +96,16 @@ public sealed record Uri(
                    : (Unescape(queryParam[..splitPoint]), Unescape(queryParam[(splitPoint + 1)..]));
     }
 
-    (string Key, string Value)? FindQuery(string key) =>
-        QueryParams.FirstOrDefault(kv => kv.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+    static Set<(string Key, string Value)> UpdateQuery(in Set<(string Key, string Value)> @params, string key, string? value){
+        var item = FindQuery(@params, key);
+        var q = @params;
+        if (item != null) q = q.Remove(item.Value);
+        if (value != null) q = q.Add((key, value));
+        return q;
+    }
+
+    static (string Key, string Value)? FindQuery(in Set<(string Key, string Value)> @params, string key) =>
+        @params.FirstOrDefault(kv => kv.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 
 #endregion
 

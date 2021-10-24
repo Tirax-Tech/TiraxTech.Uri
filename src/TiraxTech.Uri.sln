@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FBCBAFCE-0944-4CCF-94ED-0BC3612B05D7}"
 	ProjectSection(SolutionItems) = preProject
 		..\.gitignore = ..\.gitignore
+		..\..\..\..\Data\Workspace\libs\TiraxTech.Uri\README.md = ..\..\..\..\Data\Workspace\libs\TiraxTech.Uri\README.md
 	EndProjectSection
 EndProject
 Global

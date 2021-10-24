@@ -123,4 +123,30 @@ public class UriBuilderTest
         uri.SetFragment("hello").ToString().Should().Be("http://example.org:80/params?a=000&c=999#hello");
         uri.SetFragment("hello").SetFragment().ToString().Should().Be("http://example.org:80/params?a=000&c=999");
     }
+
+    [Fact]
+    public void UseHttpBuilder(){
+        var uri = Uri.Http
+                     .Host("example.org")
+                     .ChangePath("test/uri")
+                     .SetPort(8000)
+                     .SetQuery(("a", "123"), ("b", "456"))
+                     .SetFragment("fragment")
+                     .SetCredentials("user", "password");
+        uri.ToString().Should().Be("http://user:password@example.org:8000/test/uri?a=123&b=456#fragment");
+    }
+
+    [Fact]
+    public void CustomScheme(){
+        var uri = Uri.From("akka://my-sys/user");
+        uri.Paths.Length.Should().Be(1);
+        uri.Paths[0].Should().Be("user");
+        uri.ToString().Should().Be("akka://my-sys/user");
+    }
+
+    [Fact]
+    public void TestFileUri(){
+        var uri = Uri.File.Host().ChangePath("c:/WINDOWS/system.ini");
+        uri.ToString().Should().Be("file:///c%3A/WINDOWS/system.ini");
+    }
 }
