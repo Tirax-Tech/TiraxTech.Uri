@@ -1,5 +1,6 @@
 using System;
 using FluentAssertions;
+using RZ.Foundation.Extensions;
 using Xunit;
 
 namespace TiraxTech.UriTest;
@@ -97,6 +98,22 @@ public class UriBuilderTest
         newUri.QueryToString("c").Should().Be("999");
         newUri.ToString().Should().Be("http://example.org:80/params?a=000&b&c=999");
         newUri.Should().Be((Uri)"http://example.org/params?b&a=000&c=999");
+    }
+
+    [Fact]
+    public void MultipleQueryStringParse() {
+        Uri uri = "http://example.org/params?a=123&a=456";
+
+        uri.Query("a").Get().ToArray().Should().BeEquivalentTo("123", "456");
+        uri.ToString().Should().BeOneOf("http://example.org:80/params?a=456&a=123", "http://example.org:80/params?a=123&a=456");
+    }
+
+    [Fact]
+    public void SameMultipleQueryStringValueAreNotDuplicated() {
+        Uri uri = "http://example.org/params?a=123&a=123";
+
+        uri.QueryToString("a").Should().Be("123");
+        uri.ToString().Should().Be("http://example.org:80/params?a=123");
     }
 
     [Fact]

@@ -163,8 +163,16 @@ public sealed record Uri(
           Fragment = Escape(Fragment) };
         if (Port != null)
             builder.Port = Port.Value;
-        builder.Query = string.Join('&', QueryParams.Select(kv => kv.Value == StringValues.Empty? Escape(kv.Key) : $"{Escape(kv.Key)}={Escape(kv.Value)}"));
+        builder.Query = string.Join('&', QueryParams.SelectMany(ExpandQueryString));
         return builder;
+    }
+
+    static IEnumerable<string> ExpandQueryString((string Key, StringValues Values) kv) {
+        if (kv.Values == StringValues.Empty)
+            yield return Escape(kv.Key);
+        else
+            foreach(var v in kv.Values)
+                yield return $"{Escape(kv.Key)}={Escape(v)}";
     }
 
     static string Escape(string? s) => SystemUri.EscapeDataString(s ?? string.Empty);
