@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.RegularExpressions;
 using LanguageExt;
-using static LanguageExt.Prelude;
+using Microsoft.Extensions.Primitives;
 using SystemUri = System.Uri;
+using static LanguageExt.Prelude;
 
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -18,7 +20,7 @@ public sealed record Uri(
     string Host,
     int? Port,
     Seq<string> Paths,
-    Set<(string Key, string Value)> QueryParams,
+    Map<string, StringValues> QueryParams,
     string? Fragment
 )
 {
@@ -33,22 +35,25 @@ public sealed record Uri(
     public static readonly GenericUriBuilder NetTcp = new("net.tcp");
     public static readonly GenericUriBuilder NetPipe = new("net.pipe");
     public static readonly FileUriBuilder File = new();
-    
+
     public static Uri From(string uri){
         var builder = new UriBuilder(uri);
         var credentials = builder.UserName.Length == 0 && builder.Password.Length == 0
                               ? null
                               : new UriCredentials(Unescape(builder.UserName), Unescape(builder.Password));
         var @params = builder.Query.StartsWith('?')
-                          ? toSet(builder.Query[1..].Split('&').Select(ParseQueryPairs))
+                          ? (from i in builder.Query[1..].Split('&').Select(ParseQueryPairs)
+                             group i.Value by i.Key into g
+                             let multiValues = g.Where(v => v != null).ToImmutableHashSet()
+                             select KeyValuePair.Create(g.Key, new StringValues(multiValues.ToArray()))).ToMap()
                           : Empty;
-        return new Uri(builder.Scheme,
-                       credentials,
-                       Unescape(builder.Host),
-                       builder.Port == -1 ? null : builder.Port,
-                       SplitPaths(Unescape(builder.Path)),
-                       @params,
-                       ExtractFragment(builder.Fragment));
+        return new(builder.Scheme,
+                   credentials,
+                   Unescape(builder.Host),
+                   builder.Port == -1 ? null : builder.Port,
+                   SplitPaths(Unescape(builder.Path)),
+                   @params,
+                   ExtractFragment(builder.Fragment));
     }
 
     public static implicit operator Uri(string uri) => From(uri);
@@ -66,7 +71,7 @@ public sealed record Uri(
     }
 
     public static string JoinPaths(IEnumerable<string> paths) => $"/{string.Join(PathSeparator, paths.Select(Escape))}";
-    
+
     public static Seq<string> SplitPaths(string path) => SplitPathEnum(path).ToSeq();
     static IEnumerable<string> SplitPathEnum(string path) => path.Split(PathSeparator, StringSplitOptions.RemoveEmptyEntries);
 
@@ -81,32 +86,36 @@ public sealed record Uri(
 
 #region URI Query Parameters
 
-    public string? Query(string key) => FindQuery(QueryParams, key)?.Value;
+    public Option<StringValues> Query(string key) => FindQuery(QueryParams, key).Map(i => i.Value);
 
-    public Uri SetQuery(string key, string? value = null) => this with { QueryParams = UpdateQuery(QueryParams, key, value) };
+    public Uri RemoveQuery(string key) => this with { QueryParams = QueryParams.Remove(key) };
 
-    public Uri SetQuery(params (string Key, string Value)[] @params) =>
-        this with { QueryParams = @params.Aggregate(QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
-    
+    public Uri ReplaceQuery(string key, StringValues? value = null) => this with { QueryParams = QueryParams.Remove(key).Add(key, value ?? StringValues.Empty) };
+
+    public Uri UpdateQuery(string key, StringValues? value = null) => this with{ QueryParams = UpdateQuery(QueryParams, key, value ?? StringValues.Empty) };
+    public Uri UpdateQuery(params (string Key, StringValues Value)[] @params) => UpdateQueries(@params);
+
+    public Uri UpdateQueries(IEnumerable<KeyValuePair<string, StringValues>> queries) =>
+        this with { QueryParams = queries.Aggregate(QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
+    public Uri UpdateQueries(IEnumerable<(string Key, StringValues Value)> queries) =>
+        this with { QueryParams = queries.Aggregate(QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
+
     public Uri ClearQuery() => this with { QueryParams = Empty };
 
-    static (string Key,string Value) ParseQueryPairs(string queryParam){
+    static (string Key, string? Value) ParseQueryPairs(string queryParam){
         var splitPoint = queryParam.IndexOf('=');
         return splitPoint == -1
-                   ? (Unescape(queryParam), string.Empty)
+                   ? (Unescape(queryParam), null)
                    : (Unescape(queryParam[..splitPoint]), Unescape(queryParam[(splitPoint + 1)..]));
     }
 
-    static Set<(string Key, string Value)> UpdateQuery(in Set<(string Key, string Value)> @params, string key, string? value){
-        var item = FindQuery(@params, key);
-        var q = @params;
-        if (item != null) q = q.Remove(item.Value);
-        if (value != null) q = q.Add((key, value));
-        return q;
-    }
+    static Map<string, StringValues> UpdateQuery(Map<string, StringValues> @params, string key, StringValues value) =>
+        FindQuery(@params, key)
+           .Match(existing => @params.SetItem(key, new StringValues(existing.Value.Union(value).ToArray())),
+                  () => @params.Add(key, value));
 
-    static (string Key, string Value)? FindQuery(in Set<(string Key, string Value)> @params, string key) =>
-        @params.FirstOrDefault(kv => kv.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+    static Option<(string Key, StringValues Value)> FindQuery(in Map<string, StringValues> @params, string key) =>
+        @params.Find(kv => kv.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 
 #endregion
 
@@ -137,7 +146,7 @@ public sealed record Uri(
 #endregion
 
     static string ExtractFragment(string fragment) => Unescape(fragment.StartsWith('#') ? fragment[1..] : fragment);
-    
+
 #region ToString
     public override string ToString() => CreateUriBuilder().ToString();
     public System.Uri ToSystemUri() => CreateUriBuilder().Uri;
@@ -150,7 +159,7 @@ public sealed record Uri(
           Fragment = Escape(Fragment) };
         if (Port != null)
             builder.Port = Port.Value;
-        builder.Query = string.Join('&', QueryParams.Select(kv => $"{Escape(kv.Key)}={Escape(kv.Value)}"));
+        builder.Query = string.Join('&', QueryParams.Select(kv => kv.Value == StringValues.Empty? Escape(kv.Key) : $"{Escape(kv.Key)}={Escape(kv.Value)}"));
         return builder;
     }
 
