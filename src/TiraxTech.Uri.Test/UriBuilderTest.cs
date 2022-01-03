@@ -77,6 +77,16 @@ public class UriBuilderTest
     }
 
     [Fact]
+    public void AddQueryWithInvalidCharacters() {
+        Uri uri = "http://example.org/params?my discount=20%25";
+        var newUri = uri.UpdateQuery("your discount", "30%").UpdateQuery("formula", "x = y%25");
+
+        newUri.QueryToString("my discount").Should().Be("20%");
+        newUri.QueryToString("your discount").Should().Be("30%");
+        newUri.QueryToString("formula").Should().Be("x = y%25");
+    }
+
+    [Fact]
     public void ReplaceQueryParamItem(){
         Uri uri = "http://example.org/params?a=123&b=456";
 

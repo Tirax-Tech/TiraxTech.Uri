@@ -36,6 +36,8 @@ public sealed record Uri(
     public static readonly GenericUriBuilder NetPipe = new("net.pipe");
     public static readonly FileUriBuilder File = new();
 
+    #region Parsing
+
     public static Uri From(string uri){
         var builder = new UriBuilder(uri);
         var credentials = builder.UserName.Length == 0 && builder.Password.Length == 0
@@ -55,6 +57,15 @@ public sealed record Uri(
                    @params,
                    ExtractFragment(builder.Fragment));
     }
+
+    static (string Key, string? Value) ParseQueryPairs(string queryParam){
+        var splitPoint = queryParam.IndexOf('=');
+        return splitPoint == -1
+                   ? (Unescape(queryParam), null)
+                   : (Unescape(queryParam[..splitPoint]), Unescape(queryParam[(splitPoint + 1)..]));
+    }
+
+    #endregion
 
     public static implicit operator Uri(string uri) => From(uri);
 
@@ -102,16 +113,9 @@ public sealed record Uri(
 
     public Uri ClearQuery() => this with { QueryParams = Empty };
 
-    static (string Key, string? Value) ParseQueryPairs(string queryParam){
-        var splitPoint = queryParam.IndexOf('=');
-        return splitPoint == -1
-                   ? (Unescape(queryParam), null)
-                   : (Unescape(queryParam[..splitPoint]), Unescape(queryParam[(splitPoint + 1)..]));
-    }
-
     static Map<string, StringValues> UpdateQuery(Map<string, StringValues> @params, string key, StringValues value) =>
         FindQuery(@params, key)
-           .Match(existing => @params.SetItem(key, new StringValues(existing.Value.Union(value).ToArray())),
+           .Match(existing => @params.SetItem((key), new StringValues(existing.Value.Union(value).ToArray())),
                   () => @params.Add(key, value));
 
     static Option<(string Key, StringValues Value)> FindQuery(in Map<string, StringValues> @params, string key) =>
