@@ -83,6 +83,8 @@ public sealed record Uri(
 
     public static string JoinPaths(IEnumerable<string> paths) => $"/{string.Join(PathSeparator, paths.Select(Escape))}";
 
+    public string PathString() => JoinPaths(Paths);
+
     public static Seq<string> SplitPaths(string path) => SplitPathEnum(path).ToSeq();
     static IEnumerable<string> SplitPathEnum(string path) => path.Split(PathSeparator, StringSplitOptions.RemoveEmptyEntries);
 

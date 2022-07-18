@@ -28,6 +28,8 @@ public class UriBuilderTest
         uri.ToString().Should().Be(SimpleUriFormatted);
     }
 
+    #region Path tests
+
     [Fact]
     public void ChangeRelativePath(){
         Uri uri = SimpleUri;
@@ -64,6 +66,8 @@ public class UriBuilderTest
         Action test = () => uri.ChangePath("path?a=b&123#fragment!");
         test.Should().Throw<ArgumentException>();
     }
+
+    #endregion
 
     [Fact]
     public void QueryParamItem(){
