@@ -36,6 +36,16 @@ public sealed record Uri(
     public static readonly GenericUriBuilder NetPipe = new("net.pipe");
     public static readonly FileUriBuilder File = new();
 
+    static readonly IReadOnlyDictionary<string, int> DefaultPorts = new Dictionary<string, int>{
+        { "http", 80 },
+        { "ws", 80 },
+        { "https", 443 },
+        { "wss", 443 },
+        { "ftp", 21 },
+        { "ldap", 389 },
+        { "net.tcp", 808 },
+    }.ToImmutableDictionary();
+
     #region Parsing
 
     public static Uri From(string uri){
@@ -49,10 +59,11 @@ public sealed record Uri(
                              let multiValues = g.Where(v => v != null).ToImmutableHashSet()
                              select KeyValuePair.Create(g.Key, new StringValues(multiValues.ToArray()))).ToMap()
                           : Empty;
+        var defaultPort = DefaultPorts.TryGetValue(builder.Scheme).IfNone(-1);
         return new(builder.Scheme,
                    credentials,
                    Unescape(builder.Host),
-                   builder.Port == -1 ? null : builder.Port,
+                   builder.Port == -1 || builder.Port == defaultPort ? null : builder.Port,
                    SplitPaths(Unescape(builder.Path)),
                    @params,
                    ExtractFragment(builder.Fragment));
@@ -70,6 +81,7 @@ public sealed record Uri(
     public static implicit operator Uri(string uri) => From(uri);
 
     public Uri SetPort(int port) => this with { Port = port };
+    public Uri RemovePort() => this with{ Port = null };
     public Uri SetFragment(string? fragment = null) => this with { Fragment = fragment };
 
 #region Path methods

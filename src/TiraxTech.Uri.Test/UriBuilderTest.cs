@@ -8,16 +8,23 @@ namespace TiraxTech.UriTest;
 public class UriBuilderTest
 {
     const string SimpleUri = "http://www.example.org";
-    const string SimpleUriFormatted = "http://www.example.org:80/";
+    const string SimpleUriFormatted = "http://www.example.org/";
 
-    [Fact]
-    public void ConvertBetweenStringAndUri()
+    [Theory]
+    [InlineData(SimpleUri, SimpleUriFormatted)]
+    [InlineData("https://example.org", "https://example.org/")]
+    [InlineData("ftp://example.org/path", "ftp://example.org/path")]
+    [InlineData("ws://example.org/service", "ws://example.org/service")]
+    [InlineData("ldap://example.org/service", "ldap://example.org/service")]
+    [InlineData("net.tcp://example.org/service", "net.tcp://example.org/service")]
+    [InlineData("net.pipe://example.org/service", "net.pipe://example.org/service")]
+    public void ConvertBetweenStringAndUri(string originUri, string formattedUri)
     {
-        Uri uri = SimpleUri;
-        var uri1 = Uri.From(SimpleUri);
+        Uri uri = originUri;
+        var uri1 = Uri.From(originUri);
 
         uri.Should().BeEquivalentTo(uri1);
-        uri.ToString().Should().Be(SimpleUriFormatted);
+        uri.ToString().Should().Be(formattedUri);
     }
 
     [Fact]
@@ -33,7 +40,7 @@ public class UriBuilderTest
     [Fact]
     public void ChangeRelativePath(){
         Uri uri = SimpleUri;
-        (uri.ChangePath("test") with { Fragment = "anchor"}).ToString().Should().Be("http://www.example.org:80/test#anchor");
+        (uri.ChangePath("test") with { Fragment = "anchor"}).ToString().Should().Be("http://www.example.org/test#anchor");
     }
 
     [Fact]
@@ -44,20 +51,20 @@ public class UriBuilderTest
             .ChangePath("Path") with
          { Fragment = "anchor" }
             ).ToString().Should()
-             .Be("http://www.example.org:80/test/uri/Path#anchor");
+             .Be("http://www.example.org/test/uri/Path#anchor");
     }
 
     [Fact]
     public void ChangeMultipleRelativePaths(){
         Uri uri = "http://example.org/test/uri";
-        uri.ChangePath("sub1/sub2").ToString().Should().Be("http://example.org:80/test/uri/sub1/sub2");
+        uri.ChangePath("sub1/sub2").ToString().Should().Be("http://example.org/test/uri/sub1/sub2");
     }
 
     [Fact]
     public void ChangeAbsolutePath(){
         Uri uri = SimpleUri;
         uri.ChangePath("test/")
-           .ChangePath("/absolute/path").ToString().Should().Be("http://www.example.org:80/absolute/path");
+           .ChangePath("/absolute/path").ToString().Should().Be("http://www.example.org/absolute/path");
     }
 
     [Fact]
@@ -100,7 +107,7 @@ public class UriBuilderTest
         newUri.QueryToString("a").Should().Be("000");
         newUri.QueryToString("b").Should().BeEmpty();
         newUri.QueryToString("c").Should().Be("999");
-        newUri.ToString().Should().Be("http://example.org:80/params?a=000&b&c=999");
+        newUri.ToString().Should().Be("http://example.org/params?a=000&b&c=999");
         newUri.Should().Be((Uri)"http://example.org/params?b&a=000&c=999");
     }
 
@@ -109,7 +116,7 @@ public class UriBuilderTest
         Uri uri = "http://example.org/params?a=123&a=456";
 
         uri.Query("a").Get().ToArray().Should().BeEquivalentTo("123", "456");
-        uri.ToString().Should().BeOneOf("http://example.org:80/params?a=456&a=123", "http://example.org:80/params?a=123&a=456");
+        uri.ToString().Should().BeOneOf("http://example.org/params?a=456&a=123", "http://example.org/params?a=123&a=456");
     }
 
     [Fact]
@@ -117,7 +124,7 @@ public class UriBuilderTest
         Uri uri = "http://example.org/params?a=123&a=123";
 
         uri.QueryToString("a").Should().Be("123");
-        uri.ToString().Should().Be("http://example.org:80/params?a=123");
+        uri.ToString().Should().Be("http://example.org/params?a=123");
     }
 
     [Fact]
@@ -125,7 +132,7 @@ public class UriBuilderTest
         Uri uri = SimpleUri;
         var newUri = uri.SetCredentials("admin", "fake");
 
-        newUri.ToString().Should().Be("http://admin:fake@www.example.org:80/");
+        newUri.ToString().Should().Be("http://admin:fake@www.example.org/");
         // ReSharper disable once RedundantArgumentDefaultValue
         new Action(() => uri.SetCredentials("admin", null)).Should().Throw<ArgumentException>();
         newUri.SetCredentials().Should().Be(uri);
@@ -137,7 +144,7 @@ public class UriBuilderTest
         Uri uri = SimpleUri;
         uri.SetCredentials("admin", "space in password")
            .ToString()
-           .Should().Be("http://admin:space%20in%20password@www.example.org:80/");
+           .Should().Be("http://admin:space%20in%20password@www.example.org/");
     }
 
     [Fact]
@@ -145,14 +152,14 @@ public class UriBuilderTest
         Uri uri = "http://example.org#whatever%20it%20is";
 
         uri.Fragment.Should().Be("whatever it is");
-        uri.ToString().Should().Be("http://example.org:80/#whatever%20it%20is");
+        uri.ToString().Should().Be("http://example.org/#whatever%20it%20is");
     }
 
     [Fact]
     public void SetFragment(){
         Uri uri = "http://example.org/params?a=000&c=999";
-        uri.SetFragment("hello").ToString().Should().Be("http://example.org:80/params?a=000&c=999#hello");
-        uri.SetFragment("hello").SetFragment().ToString().Should().Be("http://example.org:80/params?a=000&c=999");
+        uri.SetFragment("hello").ToString().Should().Be("http://example.org/params?a=000&c=999#hello");
+        uri.SetFragment("hello").SetFragment().ToString().Should().Be("http://example.org/params?a=000&c=999");
     }
 
     [Fact]
