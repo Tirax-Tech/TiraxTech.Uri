@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Text.RegularExpressions;
-using LanguageExt;
+using System.Runtime.CompilerServices;
+using JetBrains.Annotations;
 using Microsoft.Extensions.Primitives;
 using SystemUri = System.Uri;
-using static LanguageExt.Prelude;
 
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -19,12 +18,10 @@ public sealed record Uri(
     UriCredentials? Credentials,
     string Host,
     int? Port,
-    Seq<string> Paths,
-    Map<string, StringValues> QueryParams,
-    string? Fragment
+    RelativeUri Path
 )
 {
-    const char PathSeparator = '/';
+    public const char PathSeparator = '/';
 
     public static readonly GenericUriBuilder Http = new("http");
     public static readonly GenericUriBuilder Https = new("https");
@@ -46,94 +43,34 @@ public sealed record Uri(
         { "net.tcp", 808 },
     }.ToImmutableDictionary();
 
-    #region Parsing
-
     public static Uri From(string uri){
         var builder = new UriBuilder(uri);
         var credentials = builder.UserName.Length == 0 && builder.Password.Length == 0
                               ? null
                               : new UriCredentials(Unescape(builder.UserName), Unescape(builder.Password));
-        var @params = builder.Query.StartsWith('?')
-                          ? (from i in builder.Query[1..].Split('&').Select(ParseQueryPairs)
-                             group i.Value by i.Key into g
-                             let multiValues = g.Where(v => v != null).ToImmutableHashSet()
-                             select KeyValuePair.Create(g.Key, new StringValues(multiValues.ToArray()))).ToMap()
-                          : Empty;
-        var defaultPort = DefaultPorts.TryGetValue(builder.Scheme).IfNone(-1);
+        var defaultPort = DefaultPorts.GetValueOrDefault(builder.Scheme, -1);
         return new(builder.Scheme,
                    credentials,
                    Unescape(builder.Host),
                    builder.Port == -1 || builder.Port == defaultPort ? null : builder.Port,
-                   SplitPaths(Unescape(builder.Path)),
-                   @params,
-                   ExtractFragment(builder.Fragment));
+                   RelativeUri.From(builder));
     }
-
-    static (string Key, string? Value) ParseQueryPairs(string queryParam){
-        var splitPoint = queryParam.IndexOf('=');
-        return splitPoint == -1
-                   ? (Unescape(queryParam), null)
-                   : (Unescape(queryParam[..splitPoint]), Unescape(queryParam[(splitPoint + 1)..]));
-    }
-
-    #endregion
 
     public static implicit operator Uri(string uri) => From(uri);
 
     public Uri SetPort(int port) => this with { Port = port };
     public Uri RemovePort() => this with{ Port = null };
-    public Uri SetFragment(string? fragment = null) => this with { Fragment = fragment };
+
+    public Uri SetFragment(string? fragment = null) => this with { Path = Path.SetFragment(fragment) };
 
 #region Path methods
 
-    static readonly Regex InvalidPathCharacters = new("[?#]", RegexOptions.Compiled);
-    public Uri ChangePath(string path){
-        var replace = path.FirstOrDefault() == '/';
-        var pathList = ValidatePathList(SplitPaths(path));
-        return this with { Paths = replace ? pathList : Paths.Append(pathList) };
-    }
+    public Uri ChangePath(string path) => this with { Path = Path.ChangePath(path) };
 
-    public static string JoinPaths(IEnumerable<string> paths) => $"/{string.Join(PathSeparator, paths.Select(Escape))}";
+    public static string JoinPaths(IEnumerable<string> paths) => $"{PathSeparator}{string.Join(PathSeparator, paths.Select(Escape))}";
 
-    public string PathString() => JoinPaths(Paths);
-
-    public static Seq<string> SplitPaths(string path) => SplitPathEnum(path).ToSeq();
-    static IEnumerable<string> SplitPathEnum(string path) => path.Split(PathSeparator, StringSplitOptions.RemoveEmptyEntries);
-
-    static Seq<string> ValidatePathList(Seq<string> pathList){
-        var invalid = pathList.Select(InvalidPathCharacters.Match).FirstOrDefault(i => i.Success);
-        if (invalid != null)
-            throw new ArgumentException($"Path cannot contain {invalid.Value} at {invalid.Index}!");
-        return pathList;
-    }
-
-#endregion
-
-#region URI Query Parameters
-
-    public Option<StringValues> Query(string key) => FindQuery(QueryParams, key).Map(i => i.Value);
-
-    public Uri RemoveQuery(string key) => this with { QueryParams = QueryParams.Remove(key) };
-
-    public Uri ReplaceQuery(string key, StringValues? value = null) => this with { QueryParams = QueryParams.Remove(key).Add(key, value ?? StringValues.Empty) };
-
-    public Uri UpdateQuery(string key, StringValues? value = null) => this with{ QueryParams = UpdateQuery(QueryParams, key, value ?? StringValues.Empty) };
-    public Uri UpdateQuery(params (string Key, StringValues Value)[] @params) => UpdateQueries(@params);
-
-    public Uri UpdateQueries(IEnumerable<KeyValuePair<string, StringValues>> queries) =>
-        this with { QueryParams = queries.Aggregate(QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
-    public Uri UpdateQueries(IEnumerable<(string Key, StringValues Value)> queries) =>
-        this with { QueryParams = queries.Aggregate(QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
-
-    public Uri ClearQuery() => this with { QueryParams = Empty };
-
-    static Map<string, StringValues> UpdateQuery(Map<string, StringValues> @params, string key, StringValues value) =>
-        FindQuery(@params, key)
-           .Match(existing => @params.SetItem((key), new StringValues(existing.Value.Union(value).ToArray())),
-                  () => @params.Add(key, value));
-
-    static Option<(string Key, StringValues Value)> FindQuery(in Map<string, StringValues> @params, string key) =>
-        @params.Find(kv => kv.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+    [Obsolete("Use Path.PathOnly instead.")]
+    public string PathString() => Path.PathOnly;
 
 #endregion
 
@@ -163,8 +100,6 @@ public sealed record Uri(
 
 #endregion
 
-    static string ExtractFragment(string fragment) => Unescape(fragment.StartsWith('#') ? fragment[1..] : fragment);
-
 #region ToString
     public override string ToString() => CreateUriBuilder().ToString();
     public System.Uri ToSystemUri() => CreateUriBuilder().Uri;
@@ -173,24 +108,60 @@ public sealed record Uri(
         var builder = new UriBuilder(Scheme, Host)
         { UserName = Escape(Credentials?.User),
           Password = Escape(Credentials?.Password),
-          Path     = JoinPaths(Paths),
-          Fragment = Escape(Fragment) };
+          Path     = Path.PathOnly,
+          Fragment = Escape(Path.Fragment) };
         if (Port != null)
             builder.Port = Port.Value;
-        builder.Query = string.Join('&', QueryParams.SelectMany(ExpandQueryString));
+        builder.Query = string.Join('&', Path.QueryParams.SelectMany(ExpandQueryString));
         return builder;
     }
 
-    static IEnumerable<string> ExpandQueryString((string Key, StringValues Values) kv) {
-        if (kv.Values == StringValues.Empty)
+    static IEnumerable<string> ExpandQueryString(KeyValuePair<string, StringValues> kv) {
+        if (kv.Value == StringValues.Empty)
             yield return Escape(kv.Key);
         else
-            foreach(var v in kv.Values)
+            foreach(var v in kv.Value)
                 yield return $"{Escape(kv.Key)}={Escape(v)}";
     }
 
-    static string Escape(string? s) => SystemUri.EscapeDataString(s ?? string.Empty);
-    static string Unescape(string s) => SystemUri.UnescapeDataString(s);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Escape(string? s) => SystemUri.EscapeDataString(s ?? string.Empty);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Unescape(string s) => SystemUri.UnescapeDataString(s);
 
 #endregion
+}
+
+[PublicAPI]
+public static class TiraxUri
+{
+    #region URI Query Parameters
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static StringValues? Query(this Uri uri, string key)
+        => uri.Path.Query(key);
+
+    public static Uri RemoveQuery(this Uri uri, string key)
+        => uri with { Path = uri.Path.RemoveQuery(key) };
+
+    public static Uri ReplaceQuery(this Uri uri, string key, StringValues? value = null)
+        => uri with { Path = uri.Path.ReplaceQuery(key, value) };
+
+    public static Uri UpdateQuery(this Uri uri, string key, StringValues? value = null)
+        => uri with{ Path = uri.Path.UpdateQuery(key, value) };
+
+    public static Uri UpdateQuery(this Uri uri, params (string Key, StringValues Value)[] @params)
+        => uri with { Path = uri.Path.UpdateQuery(@params) };
+
+    public static Uri UpdateQueries(this Uri uri, IEnumerable<KeyValuePair<string, StringValues>> queries)
+        => uri with { Path = uri.Path.UpdateQueries(queries) };
+
+    public static Uri UpdateQueries(this Uri uri, IEnumerable<(string Key, StringValues Value)> queries)
+        => uri with { Path = uri.Path.UpdateQueries(queries) };
+
+    public static Uri ClearQuery(this Uri uri)
+        => uri with { Path = uri.Path.ClearQuery() };
+
+    #endregion
 }

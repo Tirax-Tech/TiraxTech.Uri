@@ -1,6 +1,5 @@
 using System;
 using FluentAssertions;
-using RZ.Foundation.Extensions;
 using Xunit;
 
 namespace TiraxTech.UriTest;
@@ -31,7 +30,7 @@ public class UriBuilderTest
     public void ChangePortAndFragmentAltogether(){
         Uri uri = SimpleUri;
 
-        (uri with { Port = 123, Fragment = "test" }).ToString().Should().Be("http://www.example.org:123/#test");
+        (uri with { Port = 123, Path = uri.Path with { Fragment = "test"}}).ToString().Should().Be("http://www.example.org:123/#test");
         uri.ToString().Should().Be(SimpleUriFormatted);
     }
 
@@ -40,18 +39,15 @@ public class UriBuilderTest
     [Fact]
     public void ChangeRelativePath(){
         Uri uri = SimpleUri;
-        (uri.ChangePath("test") with { Fragment = "anchor"}).ToString().Should().Be("http://www.example.org/test#anchor");
+        uri = uri.ChangePath("test");
+        (uri with { Path = uri.Path with { Fragment = "anchor"}}).ToString().Should().Be("http://www.example.org/test#anchor");
     }
 
     [Fact]
     public void ChainChangeRelativePath(){
         Uri uri = SimpleUri;
-        (uri.ChangePath("test")
-            .ChangePath("uri")
-            .ChangePath("Path") with
-         { Fragment = "anchor" }
-            ).ToString().Should()
-             .Be("http://www.example.org/test/uri/Path#anchor");
+        uri = uri.ChangePath("test").ChangePath("uri").ChangePath("Path");
+        (uri with { Path = uri.Path with { Fragment = "anchor" }}).ToString().Should().Be("http://www.example.org/test/uri/Path#anchor");
     }
 
     [Fact]
@@ -79,13 +75,13 @@ public class UriBuilderTest
     [Fact]
     public void QueryParamItem(){
         Uri uri = "http://example.org/params?a=123&b=456&note&a b=999&this%20key=value%20with%20spaces";
-        uri.ClearQuery().Query("a").IsNone.Should().BeTrue();
+        uri.ClearQuery().Query("a").Should().BeNull();
         uri.QueryToString("a").Should().Be("123");
         uri.QueryToString("b").Should().Be("456");
         uri.QueryToString("a b").Should().Be("999");
         uri.QueryToString("this key").Should().Be("value with spaces");
         uri.QueryToString("note").Should().Be(string.Empty);
-        uri.Query("invalid").IsNone.Should().BeTrue();
+        uri.Query("invalid").Should().BeNull();
     }
 
     [Fact]
@@ -107,7 +103,12 @@ public class UriBuilderTest
         newUri.QueryToString("a").Should().Be("000");
         newUri.QueryToString("b").Should().BeEmpty();
         newUri.QueryToString("c").Should().Be("999");
-        newUri.ToString().Should().Be("http://example.org/params?a=000&b&c=999");
+
+        var parts = newUri.ToString().Split('?');
+        parts[0].Should().Be("http://example.org/params");
+
+        var queries = parts[1].Split('&');
+        queries.Should().BeEquivalentTo("a=000", "b", "c=999");
         newUri.Should().Be((Uri)"http://example.org/params?b&a=000&c=999");
     }
 
@@ -115,7 +116,7 @@ public class UriBuilderTest
     public void MultipleQueryStringParse() {
         Uri uri = "http://example.org/params?a=123&a=456";
 
-        uri.Query("a").Get().ToArray().Should().BeEquivalentTo("123", "456");
+        uri.Query("a")!.Value.ToArray().Should().BeEquivalentTo("123", "456");
         uri.ToString().Should().BeOneOf("http://example.org/params?a=456&a=123", "http://example.org/params?a=123&a=456");
     }
 
@@ -151,7 +152,7 @@ public class UriBuilderTest
     public void GetFragment(){
         Uri uri = "http://example.org#whatever%20it%20is";
 
-        uri.Fragment.Should().Be("whatever it is");
+        uri.Path.Fragment.Should().Be("whatever it is");
         uri.ToString().Should().Be("http://example.org/#whatever%20it%20is");
     }
 
@@ -177,8 +178,8 @@ public class UriBuilderTest
     [Fact]
     public void CustomScheme(){
         var uri = Uri.From("akka://my-sys/user");
-        uri.Paths.Length.Should().Be(1);
-        uri.Paths[0].Should().Be("user");
+        uri.Path.Paths.Length.Should().Be(1);
+        uri.Path.Paths[0].Should().Be("user");
         uri.ToString().Should().Be("akka://my-sys/user");
     }
 
