@@ -1,12 +1,7 @@
 ﻿namespace TiraxTech;
 
-public sealed class GenericUriBuilder
+public sealed class GenericUriBuilder(string scheme)
 {
-    readonly string scheme;
-    public GenericUriBuilder(string scheme){
-        this.scheme = scheme;
-    }
-
     public Uri Host(string host) => Uri.From($"{scheme}://{System.Uri.EscapeDataString(host)}");
 }
 

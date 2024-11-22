@@ -3,15 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiraxTech.Uri", "TiraxTech.Uri\TiraxTech.Uri.csproj", "{6C88B0DD-79EC-4321-9442-0D748588B47F}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiraxTech.Uri.Test", "TiraxTech.Uri.Test\TiraxTech.Uri.Test.csproj", "{9C69386E-D274-4DB6-8B52-7ECC9080F8B4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiraxTech.Uri", "src\TiraxTech.Uri\TiraxTech.Uri.csproj", "{6C88B0DD-79EC-4321-9442-0D748588B47F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FBCBAFCE-0944-4CCF-94ED-0BC3612B05D7}"
 	ProjectSection(SolutionItems) = preProject
-		..\.gitignore = ..\.gitignore
-		..\..\..\..\Data\Workspace\libs\TiraxTech.Uri\README.md = ..\..\..\..\Data\Workspace\libs\TiraxTech.Uri\README.md
+		.gitignore = .gitignore
+		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiraxTech.Uri.Test", "src\TiraxTech.Uri.Test\TiraxTech.Uri.Test.csproj", "{D908F746-9A45-4562-99AB-38224AFE96FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,9 +26,9 @@ Global
 		{6C88B0DD-79EC-4321-9442-0D748588B47F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6C88B0DD-79EC-4321-9442-0D748588B47F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6C88B0DD-79EC-4321-9442-0D748588B47F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9C69386E-D274-4DB6-8B52-7ECC9080F8B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9C69386E-D274-4DB6-8B52-7ECC9080F8B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9C69386E-D274-4DB6-8B52-7ECC9080F8B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9C69386E-D274-4DB6-8B52-7ECC9080F8B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D908F746-9A45-4562-99AB-38224AFE96FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D908F746-9A45-4562-99AB-38224AFE96FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D908F746-9A45-4562-99AB-38224AFE96FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D908F746-9A45-4562-99AB-38224AFE96FA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

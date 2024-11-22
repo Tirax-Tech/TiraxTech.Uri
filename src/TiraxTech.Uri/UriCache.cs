@@ -1,15 +1,10 @@
 ﻿// ReSharper disable MemberCanBePrivate.Global
 namespace TiraxTech;
 
-public readonly struct UriCache
+public readonly struct UriCache(Uri uri)
 {
-    public UriCache(Uri uri){
-        Uri = uri;
-        SystemUri = uri.ToSystemUri();
-    }
-
-    public Uri Uri{ get; }
-    public System.Uri SystemUri{ get; }
+    public Uri Uri{ get; } = uri;
+    public System.Uri SystemUri{ get; } = uri.ToSystemUri();
 
     public static UriCache From(string uri) => new(uri);
     public static UriCache From(Uri uri) => new(uri);
