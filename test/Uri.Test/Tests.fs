@@ -11,6 +11,8 @@ open Xunit
 
 type Uri = TiraxTech.Uri
 
+type private KV = KeyValuePair<string, StringValues>
+
 type ``TiraxUri extension``() =
     let SampleUri = Uri.From "https://www.google.com/search?q=hello&hl=en"
 
@@ -60,3 +62,45 @@ type ``TiraxUri extension``() =
         let result = JsonSerializer.Deserialize<Uri>(json, json_options)
 
         result.Should().Be(SampleUri) |> ignore
+
+    // ---------------------------------------- RELATIVE URI ----------------------------------------
+    [<Fact>]
+    let ``Simple relative URI``() =
+        let result = RelativeUri.From "/search"
+
+        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.QueryParams.Should<KV>().BeEquivalentTo([]) |> ignore
+        result.Fragment.Should().BeNull() |> ignore
+
+        result.ToString().Should().Be("/search") |> ignore
+
+    [<Fact>]
+    let ``Relative URI with query parameters``() =
+        let result = RelativeUri.From "/search?q=hello&hl=en"
+
+        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.QueryParams.Should<KV>().BeEquivalentTo([ KeyValuePair.Create("q", StringValues "hello")
+                                                         KeyValuePair.Create("hl",StringValues "en") ]) |> ignore
+        result.Fragment.Should().BeNull() |> ignore
+
+        result.ToString().Should().Be("/search?hl=en&q=hello") |> ignore
+
+    [<Fact>]
+    let ``Relative URI with a fragment``() =
+        let result = RelativeUri.From "/search#top"
+
+        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.QueryParams.Should<KV>().BeEquivalentTo([]) |> ignore
+        result.Fragment.Should().Be("top") |> ignore
+
+        result.ToString().Should().Be("/search#top") |> ignore
+
+    [<Fact>]
+    let ``Relative URI with query parameters and a fragment``() =
+        let result = RelativeUri.From "/search?q=xxx#top"
+
+        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.QueryParams.Should<KV>().BeEquivalentTo([ KeyValuePair.Create("q", StringValues "xxx") ]) |> ignore
+        result.Fragment.Should().Be("top") |> ignore
+
+        result.ToString().Should().Be("/search?q=xxx#top") |> ignore

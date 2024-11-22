@@ -10,6 +10,7 @@ using QueryParamType = System.Collections.Immutable.ImmutableSortedDictionary<st
 
 namespace TiraxTech;
 
+[PublicAPI]
 public record RelativeUri(
     string[] Paths,
     QueryParamType QueryParams,
@@ -18,16 +19,34 @@ public record RelativeUri(
 {
     public string PathOnly => Uri.JoinPaths(Paths);
 
-    public static RelativeUri From(UriBuilder builder) {
-        var @params = builder.Query.StartsWith('?')
-                          ? from i in builder.Query[1..].Split('&').Select(ParseQueryPairs)
+    public static RelativeUri From(UriBuilder builder)
+        => From(builder.Path, builder.Query, builder.Fragment);
+
+    public static RelativeUri From(string path) {
+        var fragmentIndex = IndexOf(path, '#');
+        var queryIndex = IndexOf(path, '?');
+        var paths = path[..(queryIndex ?? fragmentIndex ?? path.Length)];
+        var query = queryIndex is null ? null : path[queryIndex.Value..(fragmentIndex ?? path.Length)];
+        var fragment = fragmentIndex is null ? null : path[fragmentIndex.Value..];
+        return From(paths, query, fragment);
+    }
+
+    static RelativeUri From(string path, string? query, string? fragment) {
+        var @params = query is not null && query.StartsWith('?')
+                          ? from i in query[1..].Split('&').Select(ParseQueryPairs)
                             group i.Value by i.Key into g
                             let multiValues = g.Where(v => v != null).ToImmutableHashSet()
                             select KeyValuePair.Create(g.Key, new StringValues(multiValues.ToArray()))
                           : [];
-        return new(TiraxRelativeUri.SplitPaths(Uri.Unescape(builder.Path)).ToArray(),
+        return new(TiraxRelativeUri.SplitPaths(Uri.Unescape(path)).ToArray(),
                    @params.ToImmutableSortedDictionary(),
-                   ExtractFragment(builder.Fragment));
+                   fragment is null? null : ExtractFragment(fragment));
+
+    }
+
+    static int? IndexOf(string path, char c) {
+        var index = path.IndexOf(c);
+        return index == -1 ? null : index;
     }
 
     #region Equality
@@ -45,6 +64,17 @@ public record RelativeUri(
 
     #endregion
 
+    public override string ToString()
+        => this.ApplyTo(new UriBuilder(null, null, 0)).ToString();
+
+    internal static IEnumerable<string> ExpandQueryString(KeyValuePair<string, StringValues> kv) {
+        if (kv.Value == StringValues.Empty)
+            yield return Uri.Escape(kv.Key);
+        else
+            foreach(var v in kv.Value)
+                yield return $"{Uri.Escape(kv.Key)}={Uri.Escape(v)}";
+    }
+
     static string ExtractFragment(string fragment) => Uri.Unescape(fragment.StartsWith('#') ? fragment[1..] : fragment);
 
     static (string Key, string? Value) ParseQueryPairs(string queryParam){
@@ -58,13 +88,11 @@ public record RelativeUri(
     {
         public static readonly QueryValueComparer Instance = new();
 
-        public bool Equals(KeyValuePair<string, StringValues> x, KeyValuePair<string, StringValues> y) {
-            return x.Key == y.Key && ((Object)x.Value).Equals(y.Value);
-        }
+        public bool Equals(KeyValuePair<string, StringValues> x, KeyValuePair<string, StringValues> y)
+            => x.Key == y.Key && ((Object)x.Value).Equals(y.Value);
 
-        public int GetHashCode(KeyValuePair<string, StringValues> obj) {
-            return HashCode.Combine(obj.Key, obj.Value);
-        }
+        public int GetHashCode(KeyValuePair<string, StringValues> obj)
+            => HashCode.Combine(obj.Key, obj.Value);
     }
 }
 
@@ -132,4 +160,11 @@ public static class TiraxRelativeUri
 
     #endregion
 
+
+    public static UriBuilder ApplyTo(this RelativeUri uri, UriBuilder builder) {
+        builder.Path = uri.PathOnly;
+        builder.Query = string.Join('&', uri.QueryParams.SelectMany(RelativeUri.ExpandQueryString));
+        builder.Fragment = Uri.Escape(uri.Fragment);
+        return builder;
+    }
 }

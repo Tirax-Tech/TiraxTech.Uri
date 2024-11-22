@@ -13,6 +13,7 @@ namespace TiraxTech;
 
 public sealed record UriCredentials(string User, string Password);
 
+[PublicAPI]
 public sealed record Uri(
     string Scheme,
     UriCredentials? Credentials,
@@ -67,6 +68,8 @@ public sealed record Uri(
 
     public Uri ChangePath(string path) => this with { Path = Path.ChangePath(path) };
 
+    public Uri ChangePath(RelativeUri path) => this with { Path = path };
+
     public static string JoinPaths(IEnumerable<string> paths) => $"{PathSeparator}{string.Join(PathSeparator, paths.Select(Escape))}";
 
     [Obsolete("Use Path.PathOnly instead.")]
@@ -104,15 +107,13 @@ public sealed record Uri(
     public override string ToString() => CreateUriBuilder().ToString();
     public System.Uri ToSystemUri() => CreateUriBuilder().Uri;
 
-    UriBuilder CreateUriBuilder(){
-        var builder = new UriBuilder(Scheme, Host)
-        { UserName = Escape(Credentials?.User),
-          Password = Escape(Credentials?.Password),
-          Path     = Path.PathOnly,
-          Fragment = Escape(Path.Fragment) };
+    UriBuilder CreateUriBuilder() {
+        var builder = Path.ApplyTo(new UriBuilder(Scheme, Host) {
+            UserName = Escape(Credentials?.User),
+            Password = Escape(Credentials?.Password)
+        });
         if (Port != null)
             builder.Port = Port.Value;
-        builder.Query = string.Join('&', Path.QueryParams.SelectMany(ExpandQueryString));
         return builder;
     }
 
