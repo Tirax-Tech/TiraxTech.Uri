@@ -13,7 +13,30 @@ type Uri = TiraxTech.Uri
 
 type private KV = KeyValuePair<string, StringValues>
 
+[<AutoOpen>]
+module private Sample =
+    let [<Literal>] SimpleUri = "http://www.example.org";
+    let [<Literal>] SimpleUriFormatted = "http://www.example.org/";
+
 type ``TiraxUri extension``() =
+    // ---------------------------------------- SIMPLE CONVERSIONS ----------------------------------------
+    [<Fact>]
+    let ``URL without trailing slash, must still be without it after converted back-and-forth``() =
+        let uri = Uri.From "http://www.example.org/test"
+
+        let system_uri = uri.ToSystemUri()
+
+        system_uri.AbsoluteUri.Should().Be("http://www.example.org/test") |> ignore
+
+    [<Fact>]
+    let ``Trailing slash must be preserved``() =
+        let uri = Uri.From "http://www.example.org/test/"
+
+        let system_uri = uri.ToSystemUri()
+
+        system_uri.AbsoluteUri.Should().Be("http://www.example.org/test/") |> ignore
+
+    // ---------------------------------------- UPDATE QUERY STRING ----------------------------------------
     let SampleUri = Uri.From "https://www.google.com/search?q=hello&hl=en"
 
     [<Fact>]
@@ -68,7 +91,7 @@ type ``TiraxUri extension``() =
     let ``Simple relative URI``() =
         let result = RelativeUri.From "/search"
 
-        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.Paths.Should().BeEquivalentTo([""; "search"]) |> ignore
         result.QueryParams.Should<KV>().BeEquivalentTo([]) |> ignore
         result.Fragment.Should().BeNull() |> ignore
 
@@ -78,7 +101,7 @@ type ``TiraxUri extension``() =
     let ``Relative URI with query parameters``() =
         let result = RelativeUri.From "/search?q=hello&hl=en"
 
-        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.Paths.Should().BeEquivalentTo([""; "search"]) |> ignore
         result.QueryParams.Should<KV>().BeEquivalentTo([ KeyValuePair.Create("q", StringValues "hello")
                                                          KeyValuePair.Create("hl",StringValues "en") ]) |> ignore
         result.Fragment.Should().BeNull() |> ignore
@@ -89,7 +112,7 @@ type ``TiraxUri extension``() =
     let ``Relative URI with a fragment``() =
         let result = RelativeUri.From "/search#top"
 
-        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.Paths.Should().BeEquivalentTo([""; "search"]) |> ignore
         result.QueryParams.Should<KV>().BeEquivalentTo([]) |> ignore
         result.Fragment.Should().Be("top") |> ignore
 
@@ -99,7 +122,7 @@ type ``TiraxUri extension``() =
     let ``Relative URI with query parameters and a fragment``() =
         let result = RelativeUri.From "/search?q=xxx#top"
 
-        result.Paths.Should().BeEquivalentTo([|"search"|]) |> ignore
+        result.Paths.Should().BeEquivalentTo([""; "search"]) |> ignore
         result.QueryParams.Should<KV>().BeEquivalentTo([ KeyValuePair.Create("q", StringValues "xxx") ]) |> ignore
         result.Fragment.Should().Be("top") |> ignore
 

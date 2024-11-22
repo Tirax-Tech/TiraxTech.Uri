@@ -103,18 +103,20 @@ public static class TiraxRelativeUri
         => uri with { Fragment = fragment };
 
     public static string[] SplitPaths(string path)
-        => path.Split(Uri.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        => path.Split(Uri.PathSeparator).Select(s => s.Trim()).ToArray();
 
     public static RelativeUri ChangePath(this RelativeUri uri, string path){
         var replace = path.FirstOrDefault() == '/';
         var pathList = ValidatePathList(SplitPaths(path));
-        return uri with { Paths = replace ? pathList : uri.Paths.Concat(pathList).ToArray() };
+        var lhs = uri.Paths.Length > 0 && uri.Paths[^1] == string.Empty ? uri.Paths[..^1] : uri.Paths;
+        var rhs = pathList.Length > 0 && pathList[0] == string.Empty ? pathList[1..] : pathList;
+        return uri with { Paths = replace ? pathList : lhs.Concat(rhs).ToArray() };
     }
 
     static readonly Regex InvalidPathCharacters = new("[?#]", RegexOptions.Compiled);
     static string[] ValidatePathList(string[] pathList){
         var invalid = pathList.Select(s => InvalidPathCharacters.Match(s)).FirstOrDefault(i => i.Success);
-        if (invalid != null)
+        if (invalid is not null)
             throw new ArgumentException($"Path cannot contain {invalid.Value} at {invalid.Index}!");
         return pathList;
     }
@@ -159,7 +161,6 @@ public static class TiraxRelativeUri
     }
 
     #endregion
-
 
     public static UriBuilder ApplyTo(this RelativeUri uri, UriBuilder builder) {
         builder.Path = uri.PathOnly;

@@ -66,11 +66,13 @@ public sealed record Uri(
 
 #region Path methods
 
-    public Uri ChangePath(string path) => this with { Path = Path.ChangePath(path) };
+    public Uri ChangePath(string path)
+        => this with { Path = Path.ChangePath(path) };
 
     public Uri ChangePath(RelativeUri path) => this with { Path = path };
 
-    public static string JoinPaths(IEnumerable<string> paths) => $"{PathSeparator}{string.Join(PathSeparator, paths.Select(Escape))}";
+    public static string JoinPaths(IEnumerable<string> paths)
+        => string.Join(PathSeparator, paths.Select(Escape));
 
     [Obsolete("Use Path.PathOnly instead.")]
     public string PathString() => Path.PathOnly;

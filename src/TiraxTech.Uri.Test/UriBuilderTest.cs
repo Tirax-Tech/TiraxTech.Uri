@@ -178,8 +178,7 @@ public class UriBuilderTest
     [Fact]
     public void CustomScheme(){
         var uri = Uri.From("akka://my-sys/user");
-        uri.Path.Paths.Length.Should().Be(1);
-        uri.Path.Paths[0].Should().Be("user");
+        uri.Path.Paths.Should().BeEquivalentTo("", "user");
         uri.ToString().Should().Be("akka://my-sys/user");
     }
 
