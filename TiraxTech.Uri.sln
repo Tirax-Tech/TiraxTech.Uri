@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiraxTech.Uri.Test", "src\TiraxTech.Uri.Test\TiraxTech.Uri.Test.csproj", "{D908F746-9A45-4562-99AB-38224AFE96FA}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Uri.Test", "test\Uri.Test\Uri.Test.fsproj", "{C7FFF3E8-EE99-4B17-90E6-4745CF4CB39E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{D908F746-9A45-4562-99AB-38224AFE96FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D908F746-9A45-4562-99AB-38224AFE96FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D908F746-9A45-4562-99AB-38224AFE96FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7FFF3E8-EE99-4B17-90E6-4745CF4CB39E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7FFF3E8-EE99-4B17-90E6-4745CF4CB39E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7FFF3E8-EE99-4B17-90E6-4745CF4CB39E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7FFF3E8-EE99-4B17-90E6-4745CF4CB39E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

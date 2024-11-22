@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
@@ -38,7 +39,9 @@ public record RelativeUri(
          && QueryParams.SequenceEqual(other.QueryParams, QueryValueComparer.Instance)
          && Fragment == other.Fragment);
 
-    public override int GetHashCode() => HashCode.Combine(Paths, QueryParams, Fragment);
+    [ExcludeFromCodeCoverage]
+    public override int GetHashCode()
+        => HashCode.Combine(Paths, QueryParams, Fragment);
 
     #endregion
 
