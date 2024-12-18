@@ -58,6 +58,10 @@ Console.WriteLine(searchSpecial);   // https://example.org:443/api/search/specia
 Console.WriteLine(searchMerlot);    // https://example.org:443/api/v2/search?q=wine&type=merlot
 ```
 
+## RelativeUri ##
+
+Represent a relative URI. It helps when building a full URI from a base URI.
+
 ## UriCache ##
 
 Since `TiraxTech.Uri` composes URI string everytime the method `ToString()` or `ToSystemUri()`
