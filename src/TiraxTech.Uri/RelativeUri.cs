@@ -140,14 +140,14 @@ public static class TiraxRelativeUri
     public static RelativeUri UpdateQuery(this RelativeUri uri, string key)
         => UpdateQuery3(uri, key, null);
 
-    public static RelativeUri UpdateQuery<T>(this RelativeUri uri, string key, T value) where T : notnull
+    public static RelativeUri UpdateQuery<T>(this RelativeUri uri, string key, T value)
         => UpdateQuery3(uri, key, value switch {
-            StringValues v => v,
-            string v       => new StringValues(v),
+            StringValues v        => v,
+            string v              => new StringValues(v),
             IEnumerable<string> v => new StringValues(v.ToArray()),
-            ICollection v => new StringValues(v.OfType<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
+            ICollection v         => new StringValues(v.OfType<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
 
-            _ => new StringValues(value.ToString())
+            _ => value is null ? (StringValues?)null : new StringValues(value.ToString())
         });
 
     static RelativeUri UpdateQuery3(this RelativeUri uri, string key, StringValues? value)

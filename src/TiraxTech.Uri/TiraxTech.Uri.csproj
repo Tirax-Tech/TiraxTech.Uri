@@ -9,7 +9,6 @@
     <PackageLicenseUrl>https://mit-license.org/</PackageLicenseUrl>
     <PackageTags>uri</PackageTags>
     <Company>Tirax Tech</Company>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
     <LangVersion>preview</LangVersion>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
   </PropertyGroup>
