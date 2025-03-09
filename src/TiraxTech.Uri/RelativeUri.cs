@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Primitives;
@@ -17,6 +19,8 @@ public record RelativeUri(
     string? Fragment
 )
 {
+    public static implicit operator string (RelativeUri uri) => uri.ToString();
+
     public string PathOnly => Uri.JoinPaths(Paths);
 
     public static RelativeUri From(UriBuilder builder)
@@ -132,7 +136,21 @@ public static class TiraxRelativeUri
     public static RelativeUri ReplaceQuery(this RelativeUri uri, string key, StringValues? value = null)
         => uri with { QueryParams = uri.QueryParams.Remove(key).Add(key, value ?? StringValues.Empty) };
 
-    public static RelativeUri UpdateQuery(this RelativeUri uri, string key, StringValues? value = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static RelativeUri UpdateQuery(this RelativeUri uri, string key)
+        => UpdateQuery3(uri, key, null);
+
+    public static RelativeUri UpdateQuery<T>(this RelativeUri uri, string key, T value) where T : notnull
+        => UpdateQuery3(uri, key, value switch {
+            StringValues v => v,
+            string v       => new StringValues(v),
+            IEnumerable<string> v => new StringValues(v.ToArray()),
+            ICollection v => new StringValues(v.OfType<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
+
+            _ => new StringValues(value.ToString())
+        });
+
+    static RelativeUri UpdateQuery3(this RelativeUri uri, string key, StringValues? value)
         => uri with {
             QueryParams = uri.QueryParams.TryGetValue(key, out var v)
                               ? uri.QueryParams.SetItem(key, new StringValues(v.Union(value ?? StringValues.Empty).ToArray()))
