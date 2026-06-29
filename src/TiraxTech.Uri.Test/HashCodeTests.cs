@@ -7,8 +7,8 @@ public class HashCodeTests
     [DisplayName("Value-equal Uris produce equal hash codes")]
     public async Task EqualUrisHaveEqualHashCodes()
     {
-        var a = Uri.From("http://example.org/a/b?x=1#frag");
-        var b = Uri.From("http://example.org/a/b?x=1#frag");
+        var a = Uri.From("http://example.org/a/b?x=1#frag").Unwrap();
+        var b = Uri.From("http://example.org/a/b?x=1#frag").Unwrap();
 
         await Assert.That(a).IsEqualTo(b);
         await Assert.That(a.GetHashCode()).IsEqualTo(b.GetHashCode());
@@ -29,8 +29,8 @@ public class HashCodeTests
     [DisplayName("Uri works as a HashSet and Dictionary key")]
     public async Task UriWorksAsHashKey()
     {
-        var a = Uri.From("http://example.org/a/b?x=1#frag");
-        var b = Uri.From("http://example.org/a/b?x=1#frag");
+        var a = Uri.From("http://example.org/a/b?x=1#frag").Unwrap();
+        var b = Uri.From("http://example.org/a/b?x=1#frag").Unwrap();
 
         var set = new HashSet<Uri> { a };
         await Assert.That(set.Contains(b)).IsTrue();

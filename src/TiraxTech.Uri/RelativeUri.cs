@@ -7,6 +7,8 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Primitives;
+using RZ.Foundation;
+using RZ.Foundation.Types;
 using QueryParamType = System.Collections.Immutable.ImmutableSortedDictionary<string, Microsoft.Extensions.Primitives.StringValues>;
 
 namespace TiraxTech;
@@ -116,19 +118,20 @@ public static class TiraxRelativeUri
     public static string[] SplitPaths(string path)
         => path.Split(Uri.PathSeparator);
 
-    public static RelativeUri ChangePath(this RelativeUri uri, string path){
+    public static Outcome<RelativeUri> ChangePath(this RelativeUri uri, string path){
         var replace = path.FirstOrDefault() == '/';
-        var pathList = ValidatePathList(SplitPaths(path));
-        var lhs = uri.Paths.Length > 0 && uri.Paths[^1] == string.Empty ? uri.Paths.RemoveAt(uri.Paths.Length - 1) : uri.Paths;
-        var rhs = pathList.Length > 0 && pathList[0] == string.Empty ? pathList[1..] : pathList;
-        return uri with { Paths = replace ? [..pathList] : [..lhs, ..rhs] };
+        return ValidatePathList(SplitPaths(path)).Map(pathList => {
+            var lhs = uri.Paths.Length > 0 && uri.Paths[^1] == string.Empty ? uri.Paths.RemoveAt(uri.Paths.Length - 1) : uri.Paths;
+            var rhs = pathList.Length > 0 && pathList[0] == string.Empty ? pathList[1..] : pathList;
+            return uri with { Paths = replace ? [..pathList] : [..lhs, ..rhs] };
+        });
     }
 
     static readonly Regex InvalidPathCharacters = new("[?#]", RegexOptions.Compiled);
-    static string[] ValidatePathList(string[] pathList){
+    static Outcome<string[]> ValidatePathList(string[] pathList){
         var invalid = pathList.Select(s => InvalidPathCharacters.Match(s)).FirstOrDefault(i => i.Success);
         if (invalid is not null)
-            throw new ArgumentException($"Path cannot contain {invalid.Value} at {invalid.Index}!");
+            return new ErrorInfo(UriError.InvalidPathChar, $"Path cannot contain {invalid.Value} at {invalid.Index}!");
         return pathList;
     }
 

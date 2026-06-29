@@ -1,15 +1,30 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Primitives;
+using RZ.Foundation;
+using RZ.Foundation.Types;
 using SystemUri = System.Uri;
+using static RZ.Foundation.AOT.Prelude;
 
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace TiraxTech;
+
+/// <summary>
+/// Error codes produced by the <see cref="Uri"/> API when an operation fails.
+/// </summary>
+[PublicAPI]
+public static class UriError
+{
+    public const string Parse = "uri.parse";
+    public const string InvalidPathChar = "uri.path.invalid-char";
+    public const string PasswordRequired = "uri.credentials.password-required";
+    public const string UserRequired = "uri.credentials.user-required";
+}
 
 public sealed record UriCredentials(string User, string Password)
 {
@@ -38,6 +53,11 @@ public sealed record Uri(
     public static readonly GenericUriBuilder NetPipe = new("net.pipe");
     public static readonly FileUriBuilder File = new();
 
+    // Rendered for an instance that was corrupted via raw `with` (e.g. an invalid Host); construction
+    // through From/the builders/SetCredentials/ChangePath always yields a renderable value.
+    const string InvalidUriText = "about:invalid";
+    static readonly SystemUri InvalidSystemUri = new(InvalidUriText);
+
     static readonly IReadOnlyDictionary<string, int> DefaultPorts = new Dictionary<string, int>{
         { "http", 80 },
         { "ws", 80 },
@@ -46,22 +66,37 @@ public sealed record Uri(
         { "ftp", 21 },
         { "ldap", 389 },
         { "net.tcp", 808 },
+        { "net.pipe", 808 },
     }.ToImmutableDictionary();
 
-    public static Uri From(string uri){
-        var builder = new UriBuilder(uri);
-        var credentials = builder.UserName.Length == 0 && builder.Password.Length == 0
-                              ? null
-                              : new UriCredentials(Unescape(builder.UserName), Unescape(builder.Password));
-        var defaultPort = DefaultPorts.GetValueOrDefault(builder.Scheme, -1);
-        return new(builder.Scheme,
-                   credentials,
-                   Unescape(builder.Host),
-                   builder.Port == -1 || builder.Port == defaultPort ? null : builder.Port,
-                   RelativeUri.From(builder));
-    }
+    /// <summary>
+    /// Parse a URI string.
+    /// </summary>
+    /// <remarks>
+    /// Returns a failure (code <see cref="UriError.Parse"/>) for malformed input rather than throwing.
+    /// Note that dangerous schemes (e.g. <c>javascript:</c>) and dot-segments (<c>..</c>) are accepted as-is —
+    /// the library intentionally supports arbitrary/custom schemes; consumers are responsible for vetting
+    /// untrusted input and for the path normalisation that <see cref="ToSystemUri"/> applies.
+    /// </remarks>
+    public static Outcome<Uri> From(string uri) =>
+        from builder in TryCatch(() => new UriBuilder(uri))
+                            .MapFailure(e => new ErrorInfo(UriError.Parse, $"Invalid URI: '{uri}'", innerError: e))
+        from credentials in BuildCredentials(builder)
+        select new Uri(builder.Scheme,
+                       credentials,
+                       Unescape(builder.Host),
+                       NormalizePort(builder),
+                       RelativeUri.From(builder));
 
-    public static implicit operator Uri(string uri) => From(uri);
+    static Outcome<UriCredentials?> BuildCredentials(UriBuilder builder)
+        => builder.UserName.Length == 0 && builder.Password.Length == 0
+               ? SuccessOutcome<UriCredentials?>(null)
+               : ValidateCredentials(Unescape(builder.UserName), Unescape(builder.Password));
+
+    static int? NormalizePort(UriBuilder builder) {
+        var defaultPort = DefaultPorts.GetValueOrDefault(builder.Scheme, -1);
+        return builder.Port == -1 || builder.Port == defaultPort ? null : builder.Port;
+    }
 
     public Uri SetPort(int port) => this with { Port = port };
     public Uri RemovePort() => this with{ Port = null };
@@ -70,8 +105,12 @@ public sealed record Uri(
 
 #region Path methods
 
-    public Uri ChangePath(string path)
-        => this with { Path = Path.ChangePath(path) };
+    /// <summary>
+    /// Append <paramref name="path"/> to the current path. Fails (code <see cref="UriError.InvalidPathChar"/>)
+    /// if a segment contains <c>?</c> or <c>#</c>.
+    /// </summary>
+    public Outcome<Uri> ChangePath(string path)
+        => Path.ChangePath(path).Map(p => this with { Path = p });
 
     public Uri ChangePath(RelativeUri path) => this with { Path = path };
 
@@ -90,30 +129,44 @@ public sealed record Uri(
     /// </summary>
     /// <param name="user">User name can be <c>null</c> to clear credentials.</param>
     /// <param name="password">Password can be <c>null</c> only if <paramref name="user"/> is also <c>null</c></param>
-    /// <returns>New <see cref="Uri"/> with credentials set or cleared depending on the value of <paramref name="user"/>.</returns>
-    public Uri SetCredentials(string? user = null, string? password = null) => this with { Credentials = ValidateCredentials(user, password) };
+    /// <returns>New <see cref="Uri"/> with credentials set or cleared, or a failure if the pair is invalid.</returns>
+    public Outcome<Uri> SetCredentials(string? user = null, string? password = null)
+        => ValidateCredentials(user, password).Map(creds => this with { Credentials = creds });
 
     /// <summary>
-    /// Create a valid <see cref="UriCredentials"/> from the given user/password pairs.
+    /// Create a valid <see cref="UriCredentials"/> from the given user/password pair.
     /// </summary>
-    /// <param name="user">User name can be <c>null</c> to clear credentials.</param>
-    /// <param name="password">Password can be <c>null</c> only if <paramref name="user"/> is also <c>null</c></param>
-    /// <returns>Unless <paramref name="user"/> is <c>null</c>, the method returns <see cref="UriCredentials"/> that represents user/password
-    /// for <see cref="Uri"/>.</returns>
-    /// <exception cref="ArgumentException">when <paramref name="password"/> is <c>null</c> but <paramref name="user"/> has a value.</exception>
-    public static UriCredentials? ValidateCredentials(string? user = null, string? password = null){
-        if (user != null && password == null)
-            throw new ArgumentException("Password cannot be null!");
-        return user == null ? null : new UriCredentials(user, password!);
+    /// <param name="user">User name can be <c>null</c> to clear credentials, but must be non-empty otherwise.</param>
+    /// <param name="password">Password can be <c>null</c> only if <paramref name="user"/> is also <c>null</c>.</param>
+    /// <returns>
+    /// <c>null</c> credentials when <paramref name="user"/> is <c>null</c>; otherwise the <see cref="UriCredentials"/>.
+    /// Fails with <see cref="UriError.UserRequired"/> for an empty user, or <see cref="UriError.PasswordRequired"/>
+    /// when a user is set but the password is <c>null</c>.
+    /// </returns>
+    public static Outcome<UriCredentials?> ValidateCredentials(string? user = null, string? password = null) {
+        if (user is null)
+            return SuccessOutcome<UriCredentials?>(null);
+        if (user.Length == 0)
+            return new ErrorInfo(UriError.UserRequired, "User name cannot be empty when credentials are set.");
+        if (password is null)
+            return new ErrorInfo(UriError.PasswordRequired, "Password cannot be null when a user is set.");
+        return new UriCredentials(user, password);
     }
 
 #endregion
 
 #region ToString
-    public override string ToString() => CreateUriBuilder().ToString();
-    public System.Uri ToSystemUri() => CreateUriBuilder().Uri;
+    public override string ToString()
+        => TryCatch(() => CreateUriBuilder().ToString()).IfFail(_ => InvalidUriText);
+
+    public SystemUri ToSystemUri()
+        => TryCatch(() => CreateUriBuilder().Uri).IfFail(_ => InvalidSystemUri);
+
+    static readonly char[] InvalidHostChars = ['/', '\\', '?', '#', '@', ' '];
 
     UriBuilder CreateUriBuilder() {
+        if (Host.IndexOfAny(InvalidHostChars) >= 0)
+            throw new FormatException($"Invalid host: '{Host}'");
         var builder = Path.ApplyTo(new UriBuilder(Scheme, Host) {
             UserName = Escape(Credentials?.User),
             Password = Escape(Credentials?.Password)

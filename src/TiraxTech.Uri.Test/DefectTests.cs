@@ -17,7 +17,7 @@ public class DefectTests
     [DisplayName("UriCredentials.ToString() redacts the password (#9)")]
     public async Task CredentialsToStringRedactsPassword()
     {
-        var creds = Uri.From("https://alice:s3cr3t@example.com/app").Credentials!;
+        var creds = Uri.From("https://alice:s3cr3t@example.com/app").Unwrap().Credentials!;
         var text = creds.ToString();
         await Assert.That(text).DoesNotContain("s3cr3t");
         await Assert.That(text).Contains("alice");

@@ -1,3 +1,5 @@
+using RZ.Foundation;
+
 namespace TiraxTech.UriTest;
 
 public class UriBuilderTest
@@ -15,8 +17,8 @@ public class UriBuilderTest
     [Arguments("net.pipe://example.org/service", "net.pipe://example.org/service")]
     public async Task ConvertBetweenStringAndUri(string originUri, string formattedUri)
     {
-        Uri uri = originUri;
-        var uri1 = Uri.From(originUri);
+        var uri = Uri.From(originUri).Unwrap();
+        var uri1 = Uri.From(originUri).Unwrap();
 
         await Assert.That(uri).IsEqualTo(uri1);
         await Assert.That(uri.ToString()).IsEqualTo(formattedUri);
@@ -24,7 +26,7 @@ public class UriBuilderTest
 
     [Test]
     public async Task ChangePortAndFragmentAltogether(){
-        Uri uri = SimpleUri;
+        var uri = Uri.From(SimpleUri).Unwrap();
 
         await Assert.That((uri with { Port = 123, Path = uri.Path with { Fragment = "test"}}).ToString()).IsEqualTo("http://www.example.org:123/#test");
         await Assert.That(uri.ToString()).IsEqualTo(SimpleUriFormatted);
@@ -34,42 +36,44 @@ public class UriBuilderTest
 
     [Test]
     public async Task ChangeRelativePath(){
-        Uri uri = SimpleUri;
-        uri = uri.ChangePath("test");
+        var uri = Uri.From(SimpleUri).Unwrap().ChangePath("test").Unwrap();
         await Assert.That((uri with { Path = uri.Path with { Fragment = "anchor"}}).ToString()).IsEqualTo("http://www.example.org/test#anchor");
     }
 
     [Test]
     public async Task ChainChangeRelativePath(){
-        Uri uri = SimpleUri;
-        uri = uri.ChangePath("test").ChangePath("uri").ChangePath("Path");
+        var uri = Uri.From(SimpleUri).Unwrap()
+                     .ChangePath("test").Bind(u => u.ChangePath("uri")).Bind(u => u.ChangePath("Path")).Unwrap();
         await Assert.That((uri with { Path = uri.Path with { Fragment = "anchor" }}).ToString()).IsEqualTo("http://www.example.org/test/uri/Path#anchor");
     }
 
     [Test]
     public async Task ChangeMultipleRelativePaths(){
-        Uri uri = "http://example.org/test/uri";
-        await Assert.That(uri.ChangePath("sub1/sub2").ToString()).IsEqualTo("http://example.org/test/uri/sub1/sub2");
+        var uri = Uri.From("http://example.org/test/uri").Unwrap();
+        await Assert.That(uri.ChangePath("sub1/sub2").Unwrap().ToString()).IsEqualTo("http://example.org/test/uri/sub1/sub2");
     }
 
     [Test]
     public async Task ChangeAbsolutePath(){
-        Uri uri = SimpleUri;
-        await Assert.That(uri.ChangePath("test/")
-                            .ChangePath("/absolute/path").ToString()).IsEqualTo("http://www.example.org/absolute/path");
+        var uri = Uri.From(SimpleUri).Unwrap()
+                     .ChangePath("test/").Bind(u => u.ChangePath("/absolute/path")).Unwrap();
+        await Assert.That(uri.ToString()).IsEqualTo("http://www.example.org/absolute/path");
     }
 
     [Test]
-    public async Task ChangePathWithInvalidCharactersMustThrow(){
-        Uri uri = SimpleUri;
-        await Assert.That(() => uri.ChangePath("path?a=b&123#fragment!")).Throws<ArgumentException>();
+    [DisplayName("ChangePath with invalid characters fails with a path.invalid-char error")]
+    public async Task ChangePathWithInvalidCharactersFails(){
+        var uri = Uri.From(SimpleUri).Unwrap();
+        var result = uri.ChangePath("path?a=b&123#fragment!");
+        await Assert.That(result.IsFail).IsTrue();
+        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.InvalidPathChar);
     }
 
     #endregion
 
     [Test]
     public async Task QueryParamItem(){
-        Uri uri = "http://example.org/params?a=123&b=456&note&a b=999&this%20key=value%20with%20spaces";
+        var uri = Uri.From("http://example.org/params?a=123&b=456&note&a b=999&this%20key=value%20with%20spaces").Unwrap();
         await Assert.That(uri.ClearQuery().Query("a")).IsNull();
         await Assert.That(uri.QueryToString("a")).IsEqualTo("123");
         await Assert.That(uri.QueryToString("b")).IsEqualTo("456");
@@ -81,7 +85,7 @@ public class UriBuilderTest
 
     [Test]
     public async Task AddQueryWithInvalidCharacters() {
-        Uri uri = "http://example.org/params?my discount=20%25";
+        var uri = Uri.From("http://example.org/params?my discount=20%25").Unwrap();
         var newUri = uri.UpdateQuery("your discount", "30%").UpdateQuery("formula", "x = y%25");
 
         await Assert.That(newUri.QueryToString("my discount")).IsEqualTo("20%");
@@ -91,7 +95,7 @@ public class UriBuilderTest
 
     [Test]
     public async Task ReplaceQueryParamItem(){
-        Uri uri = "http://example.org/params?a=123&b=456";
+        var uri = Uri.From("http://example.org/params?a=123&b=456").Unwrap();
 
         var newUri = uri.UpdateQuery("c", "999").ReplaceQuery("a", "000").ReplaceQuery("b");
 
@@ -104,12 +108,12 @@ public class UriBuilderTest
 
         var queries = parts[1].Split('&');
         await Assert.That(queries).IsEquivalentTo(new[] { "a=000", "b", "c=999" });
-        await Assert.That(newUri).IsEqualTo((Uri)"http://example.org/params?b&a=000&c=999");
+        await Assert.That(newUri).IsEqualTo(Uri.From("http://example.org/params?b&a=000&c=999").Unwrap());
     }
 
     [Test]
     public async Task MultipleQueryStringParse() {
-        Uri uri = "http://example.org/params?a=123&a=456";
+        var uri = Uri.From("http://example.org/params?a=123&a=456").Unwrap();
 
         await Assert.That(uri.Query("a")!.Value.ToArray()).IsEquivalentTo(new string?[] { "123", "456" });
         await Assert.That(uri.ToString()).IsEqualTo("http://example.org/params?a=123&a=456");
@@ -117,7 +121,7 @@ public class UriBuilderTest
 
     [Test]
     public async Task SameMultipleQueryStringValueAreNotDuplicated() {
-        Uri uri = "http://example.org/params?a=123&a=123";
+        var uri = Uri.From("http://example.org/params?a=123&a=123").Unwrap();
 
         await Assert.That(uri.QueryToString("a")).IsEqualTo("123");
         await Assert.That(uri.ToString()).IsEqualTo("http://example.org/params?a=123");
@@ -125,27 +129,30 @@ public class UriBuilderTest
 
     [Test]
     public async Task SetCredentials(){
-        Uri uri = SimpleUri;
-        var newUri = uri.SetCredentials("admin", "fake");
+        var uri = Uri.From(SimpleUri).Unwrap();
+        var newUri = uri.SetCredentials("admin", "fake").Unwrap();
 
         await Assert.That(newUri.ToString()).IsEqualTo("http://admin:fake@www.example.org/");
-        // ReSharper disable once RedundantArgumentDefaultValue
-        await Assert.That(() => uri.SetCredentials("admin", null)).Throws<ArgumentException>();
-        await Assert.That(newUri.SetCredentials()).IsEqualTo(uri);
-        await Assert.That(newUri.SetCredentials(password: null)).IsEqualTo(newUri.SetCredentials());
+
+        var missingPassword = uri.SetCredentials("admin", null);
+        await Assert.That(missingPassword.IsFail).IsTrue();
+        await Assert.That(missingPassword.UnwrapError().Code).IsEqualTo(UriError.PasswordRequired);
+
+        await Assert.That(newUri.SetCredentials().Unwrap()).IsEqualTo(uri);
+        await Assert.That(newUri.SetCredentials(password: null).Unwrap()).IsEqualTo(newUri.SetCredentials().Unwrap());
     }
 
     [Test]
     public async Task SetCredentialsProperlyEncodedWhenSerializedToString(){
-        Uri uri = SimpleUri;
-        await Assert.That(uri.SetCredentials("admin", "space in password")
+        var uri = Uri.From(SimpleUri).Unwrap();
+        await Assert.That(uri.SetCredentials("admin", "space in password").Unwrap()
                             .ToString())
                     .IsEqualTo("http://admin:space%20in%20password@www.example.org/");
     }
 
     [Test]
     public async Task GetFragment(){
-        Uri uri = "http://example.org#whatever%20it%20is";
+        var uri = Uri.From("http://example.org#whatever%20it%20is").Unwrap();
 
         await Assert.That(uri.Path.Fragment).IsEqualTo("whatever it is");
         await Assert.That(uri.ToString()).IsEqualTo("http://example.org/#whatever%20it%20is");
@@ -153,33 +160,33 @@ public class UriBuilderTest
 
     [Test]
     public async Task SetFragment(){
-        Uri uri = "http://example.org/params?a=000&c=999";
+        var uri = Uri.From("http://example.org/params?a=000&c=999").Unwrap();
         await Assert.That(uri.SetFragment("hello").ToString()).IsEqualTo("http://example.org/params?a=000&c=999#hello");
         await Assert.That(uri.SetFragment("hello").SetFragment().ToString()).IsEqualTo("http://example.org/params?a=000&c=999");
     }
 
     [Test]
     public async Task UseHttpBuilder(){
-        var uri = Uri.Http
-                     .Host("example.org")
-                     .ChangePath("test/uri")
-                     .SetPort(8000)
-                     .UpdateQuery(("a", "123"), ("b", "456"))
-                     .SetFragment("fragment")
-                     .SetCredentials("user", "password");
+        var uri = (from u in Uri.Http.Host("example.org")
+                   from withPath in u.ChangePath("test/uri")
+                   from withCreds in withPath.SetPort(8000)
+                                             .UpdateQuery(("a", "123"), ("b", "456"))
+                                             .SetFragment("fragment")
+                                             .SetCredentials("user", "password")
+                   select withCreds).Unwrap();
         await Assert.That(uri.ToString()).IsEqualTo("http://user:password@example.org:8000/test/uri?a=123&b=456#fragment");
     }
 
     [Test]
     public async Task CustomScheme(){
-        var uri = Uri.From("akka://my-sys/user");
+        var uri = Uri.From("akka://my-sys/user").Unwrap();
         await Assert.That(uri.Path.Paths).IsEquivalentTo(new[] { "", "user" });
         await Assert.That(uri.ToString()).IsEqualTo("akka://my-sys/user");
     }
 
     [Test]
     public async Task TestFileUri(){
-        var uri = Uri.File.Host().ChangePath("c:/WINDOWS/system.ini");
+        var uri = Uri.File.Host().Bind(u => u.ChangePath("c:/WINDOWS/system.ini")).Unwrap();
         await Assert.That(uri.ToString()).IsEqualTo("file:///c%3A/WINDOWS/system.ini");
     }
 }

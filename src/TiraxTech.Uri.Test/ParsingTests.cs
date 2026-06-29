@@ -23,9 +23,9 @@ public class ParsingTests
     [DisplayName("Multi-value query preserves input order deterministically")]
     public async Task MultiValueQueryPreservesInputOrder()
     {
-        await Assert.That(Uri.From("http://h/p?a=123&a=456").ToString())
+        await Assert.That(Uri.From("http://h/p?a=123&a=456").Unwrap().ToString())
                     .IsEqualTo("http://h/p?a=123&a=456");
-        await Assert.That(Uri.From("http://h/p?x=3&x=1&x=2").ToString())
+        await Assert.That(Uri.From("http://h/p?x=3&x=1&x=2").Unwrap().ToString())
                     .IsEqualTo("http://h/p?x=3&x=1&x=2");
     }
 

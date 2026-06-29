@@ -13,7 +13,7 @@ public class TiraxUriExtensionTests
     [DisplayName("URL without trailing slash, must still be without it after converted back-and-forth")]
     public async Task UrlWithoutTrailingSlash_RemainsWithoutAfterConversion()
     {
-        var uri = Uri.From("http://www.example.org/test");
+        var uri = Uri.From("http://www.example.org/test").Unwrap();
         var systemUri = uri.ToSystemUri();
         await Assert.That(systemUri.AbsoluteUri).IsEqualTo("http://www.example.org/test");
     }
@@ -22,13 +22,13 @@ public class TiraxUriExtensionTests
     [DisplayName("Trailing slash must be preserved")]
     public async Task TrailingSlash_IsPreserved()
     {
-        var uri = Uri.From("http://www.example.org/test/");
+        var uri = Uri.From("http://www.example.org/test/").Unwrap();
         var systemUri = uri.ToSystemUri();
         await Assert.That(systemUri.AbsoluteUri).IsEqualTo("http://www.example.org/test/");
     }
 
     // ---------------------------------------- UPDATE QUERY STRING ----------------------------------------
-    static readonly Uri SampleUri = Uri.From("https://www.google.com/search?q=hello&hl=en");
+    static readonly Uri SampleUri = Uri.From("https://www.google.com/search?q=hello&hl=en").Unwrap();
 
     [Test]
     [DisplayName("Remove a single query from URL")]
