@@ -1,62 +1,66 @@
-﻿using System.Collections.Generic;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using FluentAssertions;
+using JetBrains.Annotations;
 using Microsoft.Extensions.Primitives;
 using TiraxTech.Json;
-using Xunit;
 
 namespace TiraxTech.UriTest;
 
+[UsedImplicitly(ImplicitUseTargetFlags.Members)]
 public class TiraxUriExtensionTests
 {
-    [Fact(DisplayName="URL without trailing slash, must still be without it after converted back-and-forth")]
-    public void UrlWithoutTrailingSlash_RemainsWithoutAfterConversion()
+    [Test]
+    [DisplayName("URL without trailing slash, must still be without it after converted back-and-forth")]
+    public async Task UrlWithoutTrailingSlash_RemainsWithoutAfterConversion()
     {
         var uri = Uri.From("http://www.example.org/test");
         var systemUri = uri.ToSystemUri();
-        systemUri.AbsoluteUri.Should().Be("http://www.example.org/test");
+        await Assert.That(systemUri.AbsoluteUri).IsEqualTo("http://www.example.org/test");
     }
 
-    [Fact(DisplayName = "Trailing slash must be preserved")]
-    public void TrailingSlash_IsPreserved()
+    [Test]
+    [DisplayName("Trailing slash must be preserved")]
+    public async Task TrailingSlash_IsPreserved()
     {
         var uri = Uri.From("http://www.example.org/test/");
         var systemUri = uri.ToSystemUri();
-        systemUri.AbsoluteUri.Should().Be("http://www.example.org/test/");
+        await Assert.That(systemUri.AbsoluteUri).IsEqualTo("http://www.example.org/test/");
     }
 
     // ---------------------------------------- UPDATE QUERY STRING ----------------------------------------
     static readonly Uri SampleUri = Uri.From("https://www.google.com/search?q=hello&hl=en");
 
-    [Fact(DisplayName = "Remove a single query from URL")]
-    public void RemoveSingleQueryFromUrl()
+    [Test]
+    [DisplayName("Remove a single query from URL")]
+    public async Task RemoveSingleQueryFromUrl()
     {
         var result = SampleUri.RemoveQuery("q");
-        result.ToString().Should().Be("https://www.google.com/search?hl=en");
+        await Assert.That(result.ToString()).IsEqualTo("https://www.google.com/search?hl=en");
 
         var result2 = result.RemoveQuery("hl");
-        result2.ToString().Should().Be("https://www.google.com/search");
+        await Assert.That(result2.ToString()).IsEqualTo("https://www.google.com/search");
     }
 
-    [Fact(DisplayName = "Update query parameters (KeyValue pairs)")]
-    public void UpdateQueryParameters_KeyValuePairs()
+    [Test]
+    [DisplayName("Update query parameters (KeyValue pairs)")]
+    public async Task UpdateQueryParameters_KeyValuePairs()
     {
         var result = SampleUri.UpdateQueries([
             new KeyValuePair<string, StringValues>("f", new StringValues("true")),
             new KeyValuePair<string, StringValues>("hl", new StringValues("world"))
         ]);
-        result.ToString().Should().Be("https://www.google.com/search?f=true&hl=en&hl=world&q=hello");
+        await Assert.That(result.ToString()).IsEqualTo("https://www.google.com/search?f=true&hl=en&hl=world&q=hello");
     }
 
-    [Fact(DisplayName = "Update query parameters (tuples)")]
-    public void UpdateQueryParameters_Tuples()
+    [Test]
+    [DisplayName("Update query parameters (tuples)")]
+    public async Task UpdateQueryParameters_Tuples()
     {
         var result = SampleUri.UpdateQueries([
             ("f", new StringValues("true")),
             ("hl", new StringValues("world"))
         ]);
-        result.ToString().Should().Be("https://www.google.com/search?f=true&hl=en&hl=world&q=hello");
+        await Assert.That(result.ToString()).IsEqualTo("https://www.google.com/search?f=true&hl=en&hl=world&q=hello");
     }
 
     // ---------------------------------------- JSON CONVERTER ----------------------------------------
@@ -66,68 +70,74 @@ public class TiraxUriExtensionTests
             Converters = { TiraxUriJsonConverter.Instance }
         };
 
-    [Fact(DisplayName = "Convert Uri to JSON")]
-    public void ConvertUriToJson()
+    [Test]
+    [DisplayName("Convert Uri to JSON")]
+    public async Task ConvertUriToJson()
     {
         var jsonOptions = CreateJsonOptions();
         var result = JsonSerializer.Serialize(SampleUri, jsonOptions);
-        result.Should().Be("\"https://www.google.com/search?hl=en&q=hello\"");
+        await Assert.That(result).IsEqualTo("\"https://www.google.com/search?hl=en&q=hello\"");
     }
 
-    [Fact(DisplayName = "Convert JSON to URI")]
-    public void ConvertJsonToUri()
+    [Test]
+    [DisplayName("Convert JSON to URI")]
+    public async Task ConvertJsonToUri()
     {
         var jsonOptions = CreateJsonOptions();
         var json = "\"https://www.google.com/search?hl=en&q=hello\"";
         var result = JsonSerializer.Deserialize<Uri>(json, jsonOptions);
-        result.Should().Be(SampleUri);
+        await Assert.That(result).IsEqualTo(SampleUri);
     }
 
     // ---------------------------------------- RELATIVE URI ----------------------------------------
-    [Fact(DisplayName = "Simple relative URI")]
-    public void SimpleRelativeUri()
+    [Test]
+    [DisplayName("Simple relative URI")]
+    public async Task SimpleRelativeUri()
     {
         var result = RelativeUri.From("/search");
-        result.Paths.Should().BeEquivalentTo(new[] { "", "search" });
-        result.QueryParams.Should().BeEquivalentTo(new KeyValuePair<string, StringValues>[] { });
-        result.Fragment.Should().BeNull();
-        result.ToString().Should().Be("/search");
+        await Assert.That(result.Paths).IsEquivalentTo(new[] { "", "search" });
+        await Assert.That(result.QueryParams).IsEmpty();
+        await Assert.That(result.Fragment).IsNull();
+        await Assert.That(result.ToString()).IsEqualTo("/search");
     }
 
-    [Fact(DisplayName = "Relative URI with query parameters")]
-    public void RelativeUriWithQueryParameters()
+    [Test]
+    [DisplayName("Relative URI with query parameters")]
+    public async Task RelativeUriWithQueryParameters()
     {
         var result = RelativeUri.From("/search?q=hello&hl=en");
-        result.Paths.Should().BeEquivalentTo(new[] { "", "search" });
-        result.QueryParams.Should().BeEquivalentTo(new[]
+        await Assert.That(result.Paths).IsEquivalentTo(new[] { "", "search" });
+        await Assert.That(result.QueryParams).IsEquivalentTo(new[]
         {
             new KeyValuePair<string, StringValues>("q", new StringValues("hello")),
             new KeyValuePair<string, StringValues>("hl", new StringValues("en"))
         });
-        result.Fragment.Should().BeNull();
-        result.ToString().Should().Be("/search?hl=en&q=hello");
+        await Assert.That(result.Fragment).IsNull();
+        await Assert.That(result.ToString()).IsEqualTo("/search?hl=en&q=hello");
     }
 
-    [Fact(DisplayName = "Relative URI with a fragment")]
-    public void RelativeUriWithFragment()
+    [Test]
+    [DisplayName("Relative URI with a fragment")]
+    public async Task RelativeUriWithFragment()
     {
         var result = RelativeUri.From("/search#top");
-        result.Paths.Should().BeEquivalentTo(new[] { "", "search" });
-        result.QueryParams.Should().BeEquivalentTo(new KeyValuePair<string, StringValues>[] { });
-        result.Fragment.Should().Be("top");
-        result.ToString().Should().Be("/search#top");
+        await Assert.That(result.Paths).IsEquivalentTo(new[] { "", "search" });
+        await Assert.That(result.QueryParams).IsEmpty();
+        await Assert.That(result.Fragment).IsEqualTo("top");
+        await Assert.That(result.ToString()).IsEqualTo("/search#top");
     }
 
-    [Fact(DisplayName = "Relative URI with query parameters and a fragment")]
-    public void RelativeUriWithQueryAndFragment()
+    [Test]
+    [DisplayName("Relative URI with query parameters and a fragment")]
+    public async Task RelativeUriWithQueryAndFragment()
     {
         var result = RelativeUri.From("/search?q=xxx#top");
-        result.Paths.Should().BeEquivalentTo(new[] { "", "search" });
-        result.QueryParams.Should().BeEquivalentTo(new[]
+        await Assert.That(result.Paths).IsEquivalentTo(new[] { "", "search" });
+        await Assert.That(result.QueryParams).IsEquivalentTo(new[]
         {
             new KeyValuePair<string, StringValues>("q", new StringValues("xxx"))
         });
-        result.Fragment.Should().Be("top");
-        result.ToString().Should().Be("/search?q=xxx#top");
+        await Assert.That(result.Fragment).IsEqualTo("top");
+        await Assert.That(result.ToString()).IsEqualTo("/search?q=xxx#top");
     }
 }
