@@ -109,6 +109,10 @@ public sealed record Uri(
     /// Append <paramref name="path"/> to the current path. Fails (code <see cref="UriError.InvalidPathChar"/>)
     /// if a segment contains <c>?</c> or <c>#</c>.
     /// </summary>
+    /// <remarks>
+    /// Dot-segments (<c>.</c>/<c>..</c>) are <b>not</b> rejected; <see cref="ToSystemUri"/> applies RFC 3986
+    /// normalisation, so appending untrusted <c>..</c> segments can traverse above the intended base path.
+    /// </remarks>
     public Outcome<Uri> ChangePath(string path)
         => Path.ChangePath(path).Map(p => this with { Path = p });
 
