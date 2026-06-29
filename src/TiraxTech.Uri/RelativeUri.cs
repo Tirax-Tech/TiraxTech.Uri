@@ -152,7 +152,7 @@ public static class TiraxRelativeUri
             StringValues v        => v,
             string v              => new StringValues(v),
             IEnumerable<string> v => new StringValues(v.ToArray()),
-            ICollection v         => new StringValues(v.OfType<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
+            ICollection v         => new StringValues(v.Cast<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
 
             _ => value is null ? (StringValues?)null : new StringValues(value.ToString())
         });

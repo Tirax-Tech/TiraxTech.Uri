@@ -11,7 +11,11 @@ using SystemUri = System.Uri;
 
 namespace TiraxTech;
 
-public sealed record UriCredentials(string User, string Password);
+public sealed record UriCredentials(string User, string Password)
+{
+    // Redact the password so it is never leaked via ToString()/logging (defect #9).
+    public override string ToString() => $"{nameof(UriCredentials)} {{ User = {User}, Password = *** }}";
+}
 
 [PublicAPI]
 public sealed record Uri(
