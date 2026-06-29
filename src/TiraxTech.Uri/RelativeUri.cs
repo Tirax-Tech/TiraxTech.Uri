@@ -13,7 +13,7 @@ namespace TiraxTech;
 
 [PublicAPI]
 public record RelativeUri(
-    string[] Paths,
+    ImmutableArray<string> Paths,
     QueryParamType QueryParams,
     string? Fragment
 )
@@ -44,7 +44,7 @@ public record RelativeUri(
                             let multiValues = g.Where(v => v != null).Distinct().ToArray()
                             select KeyValuePair.Create(g.Key, new StringValues(multiValues))
                           : [];
-        return new(TiraxRelativeUri.SplitPaths(path).Select(Uri.Unescape).ToArray(),
+        return new(TiraxRelativeUri.SplitPaths(path).Select(Uri.Unescape).ToImmutableArray(),
                    @params.ToImmutableSortedDictionary(),
                    fragment is null? null : ExtractFragment(fragment));
     }
@@ -119,9 +119,9 @@ public static class TiraxRelativeUri
     public static RelativeUri ChangePath(this RelativeUri uri, string path){
         var replace = path.FirstOrDefault() == '/';
         var pathList = ValidatePathList(SplitPaths(path));
-        var lhs = uri.Paths.Length > 0 && uri.Paths[^1] == string.Empty ? uri.Paths[..^1] : uri.Paths;
+        var lhs = uri.Paths.Length > 0 && uri.Paths[^1] == string.Empty ? uri.Paths.RemoveAt(uri.Paths.Length - 1) : uri.Paths;
         var rhs = pathList.Length > 0 && pathList[0] == string.Empty ? pathList[1..] : pathList;
-        return uri with { Paths = replace ? pathList : lhs.Concat(rhs).ToArray() };
+        return uri with { Paths = replace ? [..pathList] : [..lhs, ..rhs] };
     }
 
     static readonly Regex InvalidPathCharacters = new("[?#]", RegexOptions.Compiled);
