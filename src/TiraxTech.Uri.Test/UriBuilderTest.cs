@@ -112,9 +112,7 @@ public class UriBuilderTest
         Uri uri = "http://example.org/params?a=123&a=456";
 
         await Assert.That(uri.Query("a")!.Value.ToArray()).IsEquivalentTo(new string?[] { "123", "456" });
-        await Assert.That(uri.ToString())
-                    .IsEqualTo("http://example.org/params?a=456&a=123")
-                    .Or.IsEqualTo("http://example.org/params?a=123&a=456");
+        await Assert.That(uri.ToString()).IsEqualTo("http://example.org/params?a=123&a=456");
     }
 
     [Test]

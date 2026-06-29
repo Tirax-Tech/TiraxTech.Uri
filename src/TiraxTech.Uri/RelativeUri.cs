@@ -36,15 +36,17 @@ public record RelativeUri(
 
     static RelativeUri From(string path, string? query, string? fragment) {
         var @params = query is not null && query.StartsWith('?')
-                          ? from i in query[1..].Split('&').Select(ParseQueryPairs)
-                            group i.Value by i.Key into g
-                            let multiValues = g.Where(v => v != null).ToImmutableHashSet()
-                            select KeyValuePair.Create(g.Key, new StringValues(multiValues.ToArray()))
+                          ? from segment in query[1..].Split('&')
+                            where segment.Length > 0
+                            let pair = ParseQueryPairs(segment)
+                            where pair.Key.Length > 0
+                            group pair.Value by pair.Key into g
+                            let multiValues = g.Where(v => v != null).Distinct().ToArray()
+                            select KeyValuePair.Create(g.Key, new StringValues(multiValues))
                           : [];
-        return new(TiraxRelativeUri.SplitPaths(Uri.Unescape(path)).ToArray(),
+        return new(TiraxRelativeUri.SplitPaths(path).Select(Uri.Unescape).ToArray(),
                    @params.ToImmutableSortedDictionary(),
                    fragment is null? null : ExtractFragment(fragment));
-
     }
 
     static int? IndexOf(string path, char c) {
@@ -112,7 +114,7 @@ public static class TiraxRelativeUri
         => uri with { Fragment = fragment };
 
     public static string[] SplitPaths(string path)
-        => path.Split(Uri.PathSeparator).Select(s => s.Trim()).ToArray();
+        => path.Split(Uri.PathSeparator);
 
     public static RelativeUri ChangePath(this RelativeUri uri, string path){
         var replace = path.FirstOrDefault() == '/';
