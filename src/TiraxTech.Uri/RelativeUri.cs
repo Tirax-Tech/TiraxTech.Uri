@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
@@ -62,9 +61,15 @@ public record RelativeUri(
          && QueryParams.SequenceEqual(other.QueryParams, QueryValueComparer.Instance)
          && Fragment == other.Fragment);
 
-    [ExcludeFromCodeCoverage]
-    public override int GetHashCode()
-        => HashCode.Combine(Paths, QueryParams, Fragment);
+    public override int GetHashCode() {
+        var hash = new HashCode();
+        foreach(var p in Paths)
+            hash.Add(p);
+        foreach(var kv in QueryParams)
+            hash.Add(QueryValueComparer.Instance.GetHashCode(kv));
+        hash.Add(Fragment);
+        return hash.ToHashCode();
+    }
 
     #endregion
 
