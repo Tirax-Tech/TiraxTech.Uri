@@ -5,9 +5,9 @@ An immutable, reusable URI builder/parser. Parsing and other fallible operations
 
 > **Breaking change:** operations that can fail — `Uri.From`, the scheme builders' `.Host(...)`,
 > `ChangePath`, `SetCredentials`/`ValidateCredentials`, and `UriCache.From(string)` — now return
-> `Outcome<…>`, and the implicit `string → Uri` conversion has been removed. Compose fallible steps
-> with LINQ (`from … select`) or `Bind`; total operations (`SetPort`, `SetFragment`, and the query
-> methods) still return `Uri` directly. `ToString()`/`ToSystemUri()` never throw.
+> `Outcome<…>`, and the implicit `string → Uri` conversion has been removed. The builder operations
+> are also lifted onto `Outcome<Uri>`, so you can keep chaining directly and a failure short-circuits
+> the rest of the chain. `ToString()`/`ToSystemUri()` never throw.
 
 ## Quick Example ##
 
@@ -21,18 +21,15 @@ Write:
 
 ```c#
 using TiraxTech;
-using RZ.Foundation;   // brings in LINQ support for Outcome<T>
 
-var result =
-    from u        in Uri.Http.Host("example.org")
-    from withPath in u.ChangePath("test/uri")
-    from full     in withPath.SetPort(8000)
-                             .UpdateQuery(("a", "123"), ("b", "456"))
-                             .SetFragment("fragment")
-                             .SetCredentials("user", "password")
-    select full;     // result is Outcome<Uri>
+var result = Uri.Http.Host("example.org")
+                .ChangePath("test/uri")
+                .SetPort(8000)
+                .UpdateQuery(("a", "123"), ("b", "456"))
+                .SetFragment("fragment")
+                .SetCredentials("user", "password");   // result is Outcome<Uri>
 
-// Handle the result. Unwrap() throws on failure; prefer Match/IfFail/IsSuccess for untrusted input.
+// Unwrap() throws on failure; prefer Match/IfFail/IsSuccess for untrusted input.
 Console.WriteLine(result.Unwrap());
 // http://user:password@example.org:8000/test/uri?a=123&b=456#fragment
 ```
@@ -43,6 +40,18 @@ Handle failures explicitly rather than unwrapping:
 var text = Uri.From(userInput)
               .Match(uri => uri.ToString(),
                      err => $"bad uri ({err.Code}): {err.Message}");
+```
+
+The chain above is sugar over `Outcome<T>`'s monadic operators — when you need to interleave other
+`Outcome` steps you can drop down to LINQ or `Bind` directly:
+
+```c#
+using RZ.Foundation;   // LINQ support for Outcome<T>
+
+var result =
+    from u    in Uri.Http.Host("example.org")
+    from full in u.ChangePath("test/uri").SetCredentials("user", "password")
+    select full;
 ```
 
 Adding, removing, and replacing query parameters are total operations (they return `Uri`):
@@ -65,8 +74,8 @@ reused as a base for many derived URIs without side effects.
 
 ```c#
 var baseApi = Uri.Https.Host("example.org")
-                       .Bind(u => u.ChangePath("api/search"))
-                       .Map(u => u.UpdateQuery("q", "beer"))
+                       .ChangePath("api/search")
+                       .UpdateQuery("q", "beer")
                        .Unwrap();
 
 var searchWine    = baseApi.ReplaceQuery("q", "wine");
@@ -95,7 +104,7 @@ Represents a relative URI. It helps when building a full URI from a base URI.
 ```c#
 using TiraxTech;
 
-var cached = Uri.Https.Host("google.com").Map(u => u.Cached()).Unwrap();
+var cached = Uri.Https.Host("google.com").Cached().Unwrap();
 
 Console.WriteLine(cached.ToString());  // uses the cached value
 ```

@@ -1,18 +1,16 @@
-using RZ.Foundation;
-
 namespace TiraxTech.UriTest;
 
 // Locks the examples shown in README.md so the documentation cannot silently drift.
 public class ReadmeExamplesTests
 {
     static Uri BuildExample() =>
-        (from u in Uri.Http.Host("example.org")
-         from withPath in u.ChangePath("test/uri")
-         from full in withPath.SetPort(8000)
-                              .UpdateQuery(("a", "123"), ("b", "456"))
-                              .SetFragment("fragment")
-                              .SetCredentials("user", "password")
-         select full).Unwrap();
+        Uri.Http.Host("example.org")
+           .ChangePath("test/uri")
+           .SetPort(8000)
+           .UpdateQuery(("a", "123"), ("b", "456"))
+           .SetFragment("fragment")
+           .SetCredentials("user", "password")
+           .Unwrap();
 
     [Test]
     public async Task QuickExample()
@@ -35,8 +33,8 @@ public class ReadmeExamplesTests
     public async Task ReuseExample()
     {
         var baseApi = Uri.Https.Host("example.org")
-                               .Bind(u => u.ChangePath("api/search"))
-                               .Map(u => u.UpdateQuery("q", "beer"))
+                               .ChangePath("api/search")
+                               .UpdateQuery("q", "beer")
                                .Unwrap();
         var searchWine = baseApi.ReplaceQuery("q", "wine");
         var searchSpecial = searchWine.ChangePath("special").Unwrap();
