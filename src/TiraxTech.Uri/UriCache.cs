@@ -3,17 +3,24 @@ using System;
 // ReSharper disable MemberCanBePrivate.Global
 namespace TiraxTech;
 
-public readonly struct UriCache(Uri uri) : IEquatable<UriCache>
+public readonly struct UriCache : IEquatable<UriCache>
 {
-    public Uri Uri{ get; } = uri;
-    public System.Uri SystemUri{ get; } = uri.ToSystemUri();
+    public Uri Uri{ get; }
+    public System.Uri SystemUri{ get; }
 
-    public static Outcome<UriCache> From(string uri) => Uri.From(uri).Map(u => new UriCache(u));
-    public static UriCache From(Uri uri) => new(uri);
+    UriCache(Uri uri, System.Uri systemUri) {
+        Uri = uri;
+        SystemUri = systemUri;
+    }
+
+    // From(Uri) is fallible because ToSystemUri() is — a cache always holds a valid System.Uri.
+    public static Outcome<UriCache> From(string uri) => Uri.From(uri).Bind(From);
+    public static Outcome<UriCache> From(Uri uri) => uri.ToSystemUri().Map(systemUri => new UriCache(uri, systemUri));
+
     public override string ToString() => SystemUri.ToString();
 
-    // Equality is aligned with GetHashCode (which uses SystemUri): only UriCache and System.Uri are
-    // comparable (defect #18). String/Uri-record cross-type comparison is intentionally not supported.
+    // Equality is aligned across all members on SystemUri: only UriCache and System.Uri are comparable
+    // (defect #18). String/Uri-record cross-type comparison is intentionally not supported.
     public override bool Equals(object? obj) =>
         obj switch
         { UriCache cache => cache.SystemUri == SystemUri,
@@ -30,5 +37,5 @@ public readonly struct UriCache(Uri uri) : IEquatable<UriCache>
 
 public static class UriCacheExtension
 {
-    public static UriCache Cached(this Uri uri) => UriCache.From(uri);
+    public static Outcome<UriCache> Cached(this Uri uri) => UriCache.From(uri);
 }

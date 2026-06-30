@@ -25,6 +25,15 @@ public sealed record UriCredentials(string User, string Password)
     public override string ToString() => $"{nameof(UriCredentials)} {{ User = {User}, Password = *** }}";
 }
 
+/// <summary>
+/// An immutable URI value.
+/// </summary>
+/// <remarks>
+/// Construct via <see cref="From"/> or the scheme builders (<see cref="Http"/>, <see cref="File"/>, …),
+/// which validate their input. Mutating <see cref="Scheme"/> or <see cref="Host"/> through a raw
+/// <c>with</c> expression bypasses that validation and is unsupported: <see cref="ToString"/> still
+/// renders the value faithfully, but <see cref="ToSystemUri"/> may then fail.
+/// </remarks>
 [PublicAPI]
 public sealed record Uri(
     string Scheme,
@@ -45,11 +54,6 @@ public sealed record Uri(
     public static readonly GenericUriBuilder NetTcp = new("net.tcp");
     public static readonly GenericUriBuilder NetPipe = new("net.pipe");
     public static readonly FileUriBuilder File = new();
-
-    // Rendered for an instance that was corrupted via raw `with` (e.g. an invalid Host); construction
-    // through From/the builders/SetCredentials/ChangePath always yields a renderable value.
-    const string INVALID_URI_TEXT = "about:invalid";
-    static readonly SystemUri INVALID_SYSTEM_URI = new(INVALID_URI_TEXT);
 
     static readonly IReadOnlyDictionary<string, int> DefaultPorts = new Dictionary<string, int> {
         { "http", 80 },
@@ -157,22 +161,22 @@ public sealed record Uri(
 
     #region ToString
 
+    /// <summary>
+    /// Render this instance as a URI string. This is a faithful serializer of the current field values —
+    /// it performs no validation and never substitutes a placeholder.
+    /// </summary>
     public override string ToString()
-        => ToSystemUri().ToString();
+        => CreateUriBuilder().ToString();
 
-    public SystemUri ToSystemUri()
-        => Success(CreateUriBuilder(), out var uri)
-        && Success(TryCatch(() => uri.Uri), out var safeUri)
-               ? safeUri
-               : INVALID_SYSTEM_URI;
+    /// <summary>
+    /// Convert to a <see cref="System.Uri"/>. Unlike <see cref="ToString"/> this is a fallible conversion:
+    /// it fails when the current value cannot be represented as a <see cref="System.Uri"/>. Anything
+    /// produced by <see cref="From"/> or the builders converts successfully.
+    /// </summary>
+    public Outcome<SystemUri> ToSystemUri()
+        => TryCatch(() => CreateUriBuilder().Uri);
 
-    static readonly System.Buffers.SearchValues<char> INVALID_HOST_CHARS = System.Buffers.SearchValues.Create("/\\?#@ \t\n\r\v\f\0");
-    Outcome<UriBuilder> CreateUriBuilder() {
-        if (Host.Length == 0
-         || Host.AsSpan().IndexOfAny(INVALID_HOST_CHARS) >= 0
-         || Host[0] == '.')
-            return ErrorInfo.New(INVALID_REQUEST, $"Invalid host: '{Host}'");
-
+    UriBuilder CreateUriBuilder() {
         var builder = Path.ApplyTo(new UriBuilder(Scheme, Host) {
             UserName = Escape(Credentials?.User),
             Password = Escape(Credentials?.Password)

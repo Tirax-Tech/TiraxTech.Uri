@@ -29,15 +29,6 @@ public class OutcomeTests
     }
 
     [Test]
-    [DisplayName("Host injection via raw `with` renders a safe sentinel, not a smuggled host (#7)")]
-    public async Task HostInjectionRendersSentinel()
-    {
-        var injected = Uri.From("https://example.com/app").Unwrap() with { Host = "evil.com/a/../../admin" };
-        await Assert.That(injected.ToString()).IsEqualTo("about:invalid");
-        await Assert.That(injected.ToSystemUri().ToString()).IsEqualTo("about:invalid");
-    }
-
-    [Test]
     [DisplayName("net.pipe with a port fails gracefully instead of throwing (#15)")]
     public async Task NetPipeWithPortFailsGracefully()
     {
@@ -61,5 +52,20 @@ public class OutcomeTests
         var json = JsonSerializer.Serialize(uri, options);
         var back = JsonSerializer.Deserialize<Uri>(json, options);
         await Assert.That(back).IsEqualTo(uri);
+    }
+
+    [Test]
+    [DisplayName("ToString renders faithfully; ToSystemUri is a fallible conversion (no sentinel)")]
+    public async Task RenderFaithfullyAndConvertFallibly()
+    {
+        var ok = Uri.From("https://example.com/app").Unwrap();
+        await Assert.That(ok.ToString()).IsEqualTo("https://example.com/app");
+        await Assert.That(ok.ToSystemUri().IsSuccess).IsTrue();
+
+        // A host mutated via raw `with` is the developer's responsibility: ToString still renders it
+        // verbatim (no placeholder), and ToSystemUri reports the conversion failure.
+        var corrupted = ok with { Host = "bad host" };
+        await Assert.That(corrupted.ToString()).Contains("bad host");
+        await Assert.That(corrupted.ToSystemUri().IsFail).IsTrue();
     }
 }

@@ -11,7 +11,7 @@ public sealed class UriCacheTest
 
         await Assert.That(uri).IsEqualTo(uri2);
         await Assert.That(uri.Equals(new System.Uri(testUri))).IsTrue();
-        await Assert.That(uri).IsEqualTo(uri3.Cached());
+        await Assert.That(uri).IsEqualTo(uri3.Cached().Unwrap());
 
         await Assert.That(uri.SystemUri).IsEqualTo(new System.Uri(testUri));
         await Assert.That(uri.Uri).IsEqualTo(uri2.Uri);

@@ -9,15 +9,19 @@ namespace TiraxTech;
 [PublicAPI]
 public static class OutcomeUriExtension
 {
-    // Total operations compose with Map.
     extension(Outcome<Uri> uri)
     {
+        // Fallible operations short-circuit with Bind.
         public Outcome<Uri> ChangePath(string path)
             => uri.Bind(u => u.ChangePath(path));
 
         public Outcome<Uri> SetCredentials(string? user = null, string? password = null)
             => uri.Bind(u => u.SetCredentials(user, password));
 
+        public Outcome<UriCache> Cached()
+            => uri.Bind(u => u.Cached());
+
+        // Total operations compose with Map.
         public Outcome<Uri> ChangePath(RelativeUri path)
             => uri.Map(u => u.ChangePath(path));
 
@@ -50,8 +54,5 @@ public static class OutcomeUriExtension
 
         public Outcome<Uri> ClearQuery()
             => uri.Map(u => u.ClearQuery());
-
-        public Outcome<UriCache> Cached()
-            => uri.Map(u => u.Cached());
     }
 }

@@ -14,7 +14,7 @@ public class TiraxUriExtensionTests
     public async Task UrlWithoutTrailingSlash_RemainsWithoutAfterConversion()
     {
         var uri = Uri.From("http://www.example.org/test").Unwrap();
-        var systemUri = uri.ToSystemUri();
+        var systemUri = uri.ToSystemUri().Unwrap();
         await Assert.That(systemUri.AbsoluteUri).IsEqualTo("http://www.example.org/test");
     }
 
@@ -23,7 +23,7 @@ public class TiraxUriExtensionTests
     public async Task TrailingSlash_IsPreserved()
     {
         var uri = Uri.From("http://www.example.org/test/").Unwrap();
-        var systemUri = uri.ToSystemUri();
+        var systemUri = uri.ToSystemUri().Unwrap();
         await Assert.That(systemUri.AbsoluteUri).IsEqualTo("http://www.example.org/test/");
     }
 

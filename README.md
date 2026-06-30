@@ -88,11 +88,14 @@ Console.WriteLine(searchWine);      // https://example.org/api/search?q=wine
 Console.WriteLine(searchSpecial);   // https://example.org/api/search/special?q=wine
 ```
 
-> **Note on untrusted input:** the parser accepts arbitrary/custom schemes (e.g. `akka://`,
-> `net.tcp://`) by design and does **not** reject dangerous schemes (e.g. `javascript:`) or
-> dot-segments (`..`). `ToSystemUri()` applies RFC 3986 dot-segment normalisation, so a `..`
-> appended via `ChangePath` can climb above the intended base path. Vet untrusted scheme/path
-> input yourself.
+> **Note on construction & untrusted input:** build URIs via `Uri.From` or the scheme builders —
+> they validate their input. Mutating `Scheme`/`Host` through a raw `with` expression bypasses that
+> validation and is unsupported: `ToString()` is a faithful serializer that still renders the value
+> as-is, but `ToSystemUri()` (a fallible `Outcome<System.Uri>` conversion) will then fail. The parser
+> accepts arbitrary/custom schemes (e.g. `akka://`, `net.tcp://`) by design and does **not** reject
+> dangerous schemes (e.g. `javascript:`) or dot-segments (`..`); a `..` appended via `ChangePath` is
+> normalised by `ToSystemUri()` (RFC 3986) and can climb above the intended base path. Vet untrusted
+> scheme/host/path input yourself.
 
 ## RelativeUri ##
 
