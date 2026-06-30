@@ -11,6 +11,7 @@
     <Company>Tirax Tech</Company>
     <LangVersion>preview</LangVersion>
     <TargetFramework>net10.0</TargetFramework>
+      <AssemblyVersion>3.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
