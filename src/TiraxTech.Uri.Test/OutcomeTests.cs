@@ -63,9 +63,26 @@ public class OutcomeTests
         await Assert.That(ok.ToSystemUri().IsSuccess).IsTrue();
 
         // A host mutated via raw `with` is the developer's responsibility: ToString still renders it
-        // verbatim (no placeholder), and ToSystemUri reports the conversion failure.
-        var corrupted = ok with { Host = "bad host" };
-        await Assert.That(corrupted.ToString()).Contains("bad host");
-        await Assert.That(corrupted.ToSystemUri().IsFail).IsTrue();
+        // verbatim (no placeholder/throw), and ToSystemUri reports the conversion failure.
+        var badHost = ok with { Host = "bad host" };
+        await Assert.That(badHost.ToString()).IsEqualTo("https://bad host/app");
+        await Assert.That(badHost.ToSystemUri().IsFail).IsTrue();
+    }
+
+    [Test]
+    [DisplayName("ToString stays total for a `with`-corrupted scheme or port; ToSystemUri fails")]
+    public async Task ToStringIsTotalForCorruptedSchemeAndPort()
+    {
+        var ok = Uri.From("https://example.com/app").Unwrap();
+
+        // A corrupted scheme makes System.UriBuilder throw, but the custom serializer renders it as-is.
+        var badScheme = ok with { Scheme = "ht tp" };
+        await Assert.That(badScheme.ToString()).IsEqualTo("ht tp://example.com/app");
+        await Assert.That(badScheme.ToSystemUri().IsFail).IsTrue();
+
+        // An out-of-range port renders faithfully too; only the System.Uri conversion fails.
+        var badPort = ok with { Port = 999_999 };
+        await Assert.That(badPort.ToString()).IsEqualTo("https://example.com:999999/app");
+        await Assert.That(badPort.ToSystemUri().IsFail).IsTrue();
     }
 }
