@@ -4,10 +4,11 @@ An immutable, reusable URI builder/parser. Parsing and other fallible operations
 [`RZ.Foundation`](https://www.nuget.org/packages/RZ.Foundation)'s `Outcome<T>` instead of throwing.
 
 > **Breaking change:** operations that can fail — `Uri.From`, the scheme builders' `.Host(...)`,
-> `ChangePath`, `SetCredentials`/`ValidateCredentials`, and `UriCache.From(string)` — now return
+> `ChangePath`, `SetCredentials`/`ValidateCredentials`, `UriCache.From`, and `ToSystemUri()` — return
 > `Outcome<…>`, and the implicit `string → Uri` conversion has been removed. The builder operations
 > are also lifted onto `Outcome<Uri>`, so you can keep chaining directly and a failure short-circuits
-> the rest of the chain. `ToString()`/`ToSystemUri()` never throw.
+> the rest of the chain. `ToString()` is a faithful serializer (never throws); `ToSystemUri()` returns
+> `Outcome<System.Uri>`.
 
 ## Quick Example ##
 

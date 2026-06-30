@@ -163,10 +163,16 @@ public sealed record Uri(
 
     /// <summary>
     /// Render this instance as a URI string. This is a faithful serializer of the current field values —
-    /// it performs no validation and never substitutes a placeholder.
+    /// it performs no validation, never throws, and never substitutes a placeholder.
     /// </summary>
-    public override string ToString()
-        => CreateUriBuilder().ToString();
+    public override string ToString() {
+        var credentials = Credentials is null ? "" : $"{Escape(Credentials.User)}:{Escape(Credentials.Password)}@";
+        var port = Port is null ? "" : $":{Port.Value}";
+        var query = string.Join('&', Path.QueryParams.SelectMany(RelativeUri.ExpandQueryString));
+        var queryPart = query.Length == 0 ? "" : $"?{query}";
+        var fragment = string.IsNullOrEmpty(Path.Fragment) ? "" : $"#{Escape(Path.Fragment)}";
+        return $"{Scheme}://{credentials}{Host}{port}{Path.PathOnly}{queryPart}{fragment}";
+    }
 
     /// <summary>
     /// Convert to a <see cref="System.Uri"/>. Unlike <see cref="ToString"/> this is a fallible conversion:
