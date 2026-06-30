@@ -28,7 +28,7 @@ public class OutcomeChainTests
                          .SetFragment("never");
 
         await Assert.That(result.IsFail).IsTrue();
-        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.InvalidPathChar);
+        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.INVALID_PATH_CHAR);
     }
 
     [Test]

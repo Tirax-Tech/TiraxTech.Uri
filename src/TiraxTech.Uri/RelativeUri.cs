@@ -1,26 +1,14 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using JetBrains.Annotations;
-using Microsoft.Extensions.Primitives;
-using RZ.Foundation;
-using RZ.Foundation.Types;
 using QueryParamType = System.Collections.Immutable.ImmutableSortedDictionary<string, Microsoft.Extensions.Primitives.StringValues>;
 
 namespace TiraxTech;
 
 [PublicAPI]
-public record RelativeUri(
-    ImmutableArray<string> Paths,
-    QueryParamType QueryParams,
-    string? Fragment
-)
+public record RelativeUri(ImmutableArray<string> Paths, QueryParamType QueryParams, string? Fragment)
 {
-    public static implicit operator string (RelativeUri uri) => uri.ToString();
+    public static implicit operator string(RelativeUri uri) => uri.ToString();
 
     public string PathOnly => Uri.JoinPaths(Paths);
 
@@ -48,7 +36,7 @@ public record RelativeUri(
                           : [];
         return new(TiraxRelativeUri.SplitPaths(path).Select(Uri.Unescape).ToImmutableArray(),
                    @params.ToImmutableSortedDictionary(),
-                   fragment is null? null : ExtractFragment(fragment));
+                   fragment is null ? null : ExtractFragment(fragment));
     }
 
     static int? IndexOf(string path, char c) {
@@ -67,9 +55,9 @@ public record RelativeUri(
 
     public override int GetHashCode() {
         var hash = new HashCode();
-        foreach(var p in Paths)
+        foreach (var p in Paths)
             hash.Add(p);
-        foreach(var kv in QueryParams)
+        foreach (var kv in QueryParams)
             hash.Add(QueryValueComparer.Instance.GetHashCode(kv));
         hash.Add(Fragment);
         return hash.ToHashCode();
@@ -84,13 +72,13 @@ public record RelativeUri(
         if (kv.Value == StringValues.Empty)
             yield return Uri.Escape(kv.Key);
         else
-            foreach(var v in kv.Value)
+            foreach (var v in kv.Value)
                 yield return $"{Uri.Escape(kv.Key)}={Uri.Escape(v)}";
     }
 
     static string ExtractFragment(string fragment) => Uri.Unescape(fragment.StartsWith('#') ? fragment[1..] : fragment);
 
-    static (string Key, string? Value) ParseQueryPairs(string queryParam){
+    static (string Key, string? Value) ParseQueryPairs(string queryParam) {
         var splitPoint = queryParam.IndexOf('=');
         return splitPoint == -1
                    ? (Uri.Unescape(queryParam), null)
@@ -102,7 +90,7 @@ public record RelativeUri(
         public static readonly QueryValueComparer Instance = new();
 
         public bool Equals(KeyValuePair<string, StringValues> x, KeyValuePair<string, StringValues> y)
-            => x.Key == y.Key && ((Object)x.Value).Equals(y.Value);
+            => x.Key == y.Key && x.Value.Equals(y.Value);
 
         public int GetHashCode(KeyValuePair<string, StringValues> obj)
             => HashCode.Combine(obj.Key, obj.Value);
@@ -118,7 +106,7 @@ public static class TiraxRelativeUri
     public static string[] SplitPaths(string path)
         => path.Split(Uri.PathSeparator);
 
-    public static Outcome<RelativeUri> ChangePath(this RelativeUri uri, string path){
+    public static Outcome<RelativeUri> ChangePath(this RelativeUri uri, string path) {
         var replace = path.FirstOrDefault() == '/';
         return ValidatePathList(SplitPaths(path)).Map(pathList => {
             var lhs = uri.Paths.Length > 0 && uri.Paths[^1] == string.Empty ? uri.Paths.RemoveAt(uri.Paths.Length - 1) : uri.Paths;
@@ -128,58 +116,62 @@ public static class TiraxRelativeUri
     }
 
     static readonly Regex InvalidPathCharacters = new("[?#]", RegexOptions.Compiled);
-    static Outcome<string[]> ValidatePathList(string[] pathList){
+
+    static Outcome<string[]> ValidatePathList(string[] pathList) {
         var invalid = pathList.Select(s => InvalidPathCharacters.Match(s)).FirstOrDefault(i => i.Success);
         if (invalid is not null)
-            return new ErrorInfo(UriError.InvalidPathChar, $"Path cannot contain {invalid.Value} at {invalid.Index}!");
+            return ErrorInfo.New(UriError.INVALID_PATH_CHAR, $"Path cannot contain {invalid.Value} at {invalid.Index}!");
         return pathList;
     }
 
     #region URI Query Parameters
 
-    public static StringValues? Query(this RelativeUri uri, string key)
-        => uri.QueryParams.TryGetValue(key, out var value) ? (StringValues?) value : null;
+    extension(RelativeUri uri)
+    {
+        public StringValues? Query(string key)
+            => uri.QueryParams.TryGetValue(key, out var value) ? (StringValues?)value : null;
 
-    public static RelativeUri RemoveQuery(this RelativeUri uri, string key)
-        => uri with { QueryParams = uri.QueryParams.Remove(key) };
+        public RelativeUri RemoveQuery(string key)
+            => uri with { QueryParams = uri.QueryParams.Remove(key) };
 
-    public static RelativeUri ReplaceQuery(this RelativeUri uri, string key, StringValues? value = null)
-        => uri with { QueryParams = uri.QueryParams.Remove(key).Add(key, value ?? StringValues.Empty) };
+        public RelativeUri ReplaceQuery(string key, StringValues? value = null)
+            => uri with { QueryParams = uri.QueryParams.Remove(key).Add(key, value ?? StringValues.Empty) };
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static RelativeUri UpdateQuery(this RelativeUri uri, string key)
-        => UpdateQuery3(uri, key, null);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RelativeUri UpdateQuery(string key)
+            => uri.UpdateQuery(key, null);
 
-    public static RelativeUri UpdateQuery<T>(this RelativeUri uri, string key, T value)
-        => UpdateQuery3(uri, key, value switch {
-            StringValues v        => v,
-            string v              => new StringValues(v),
-            IEnumerable<string> v => new StringValues(v.ToArray()),
-            ICollection v         => new StringValues(v.Cast<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
+        public RelativeUri UpdateQuery<T>(string key, T value)
+            => uri.UpdateQuery(key, value switch {
+                StringValues v        => v,
+                string v              => new StringValues(v),
+                IEnumerable<string> v => new StringValues(v.ToArray()),
+                ICollection v         => new StringValues(v.Cast<object?>().Select(o => o?.ToString() ?? "null").ToArray()),
 
-            _ => value is null ? (StringValues?)null : new StringValues(value.ToString())
-        });
+                _ => value is null ? (StringValues?)null : new StringValues(value.ToString())
+            });
 
-    static RelativeUri UpdateQuery3(this RelativeUri uri, string key, StringValues? value)
-        => uri with {
-            QueryParams = uri.QueryParams.TryGetValue(key, out var v)
-                              ? uri.QueryParams.SetItem(key, new StringValues(v.Union(value ?? StringValues.Empty).ToArray()))
-                              : value is null
-                                  ? uri.QueryParams
-                                  : uri.QueryParams.Add(key, value.Value)
-        };
+        RelativeUri UpdateQuery(string key, StringValues? value)
+            => uri with {
+                QueryParams = uri.QueryParams.TryGetValue(key, out var v)
+                                  ? uri.QueryParams.SetItem(key, new StringValues(v.Union(value ?? StringValues.Empty).ToArray()))
+                                  : value is null
+                                      ? uri.QueryParams
+                                      : uri.QueryParams.Add(key, value.Value)
+            };
 
-    public static RelativeUri UpdateQuery(this RelativeUri uri, params (string Key, StringValues Value)[] @params)
-        => uri.UpdateQueries(@params);
+        public RelativeUri UpdateQuery(params (string Key, StringValues Value)[] @params)
+            => uri.UpdateQueries(@params);
 
-    public static RelativeUri UpdateQueries(this RelativeUri uri, IEnumerable<KeyValuePair<string, StringValues>> queries)
-        => uri.UpdateQueries(from kv in queries select (kv.Key, kv.Value));
+        public RelativeUri UpdateQueries(IEnumerable<KeyValuePair<string, StringValues>> queries)
+            => uri.UpdateQueries(from kv in queries select (kv.Key, kv.Value));
 
-    public static RelativeUri UpdateQueries(this RelativeUri uri, IEnumerable<(string Key, StringValues Value)> queries)
-        => uri with { QueryParams = queries.Aggregate(uri.QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
+        public RelativeUri UpdateQueries(IEnumerable<(string Key, StringValues Value)> queries)
+            => uri with { QueryParams = queries.Aggregate(uri.QueryParams, (last, i) => UpdateQuery(last, i.Key, i.Value)) };
 
-    public static RelativeUri ClearQuery(this RelativeUri uri)
-        => uri with { QueryParams = ImmutableSortedDictionary<string, StringValues>.Empty };
+        public RelativeUri ClearQuery()
+            => uri with { QueryParams = ImmutableSortedDictionary<string, StringValues>.Empty };
+    }
 
     static QueryParamType UpdateQuery(QueryParamType @params, string key, StringValues value) {
         var newValue = @params.TryGetValue(key, out var values)

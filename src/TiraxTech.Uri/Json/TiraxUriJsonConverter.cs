@@ -1,14 +1,13 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using JetBrains.Annotations;
-using RZ.Foundation;
 
 namespace TiraxTech.Json;
 
 [PublicAPI]
 public sealed class TiraxUriJsonConverter : JsonConverter<Uri>
 {
+    // ReSharper disable once InconsistentNaming
     public static readonly TiraxUriJsonConverter Instance = new();
 
     public override Uri? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
@@ -16,7 +15,7 @@ public sealed class TiraxUriJsonConverter : JsonConverter<Uri>
         return v is null ? null : Uri.From(v).Match(u => u, e => throw new JsonException(e.Message));
     }
 
-    public override void Write(Utf8JsonWriter writer, Uri value, JsonSerializerOptions options) {
+    public override void Write(Utf8JsonWriter writer, Uri? value, JsonSerializerOptions options) {
         if (value is null)
             writer.WriteNullValue();
         else

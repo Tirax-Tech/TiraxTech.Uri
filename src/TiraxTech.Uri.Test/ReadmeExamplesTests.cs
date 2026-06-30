@@ -1,6 +1,9 @@
+using JetBrains.Annotations;
+
 namespace TiraxTech.UriTest;
 
 // Locks the examples shown in README.md so the documentation cannot silently drift.
+[UsedImplicitly(ImplicitUseTargetFlags.Members)]
 public class ReadmeExamplesTests
 {
     static Uri BuildExample() =>

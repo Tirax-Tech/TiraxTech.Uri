@@ -1,9 +1,9 @@
-using RZ.Foundation;
+using System;
 
 // ReSharper disable MemberCanBePrivate.Global
 namespace TiraxTech;
 
-public readonly struct UriCache(Uri uri)
+public readonly struct UriCache(Uri uri) : IEquatable<UriCache>
 {
     public Uri Uri{ get; } = uri;
     public System.Uri SystemUri{ get; } = uri.ToSystemUri();
@@ -21,6 +21,11 @@ public readonly struct UriCache(Uri uri)
           _              => false };
 
     public override int GetHashCode() => SystemUri.GetHashCode();
+
+    public bool Equals(UriCache other) => SystemUri.Equals(other.SystemUri);
+
+    public static bool operator ==(UriCache left, UriCache right) => left.Equals(right);
+    public static bool operator !=(UriCache left, UriCache right) => !left.Equals(right);
 }
 
 public static class UriCacheExtension

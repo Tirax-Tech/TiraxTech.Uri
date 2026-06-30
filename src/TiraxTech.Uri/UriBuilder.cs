@@ -1,5 +1,3 @@
-using RZ.Foundation;
-
 namespace TiraxTech;
 
 public sealed class GenericUriBuilder(string scheme)

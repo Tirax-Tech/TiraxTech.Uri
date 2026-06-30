@@ -1,12 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using JetBrains.Annotations;
-using Microsoft.Extensions.Primitives;
-using RZ.Foundation;
-using RZ.Foundation.Types;
 using SystemUri = System.Uri;
 using static RZ.Foundation.AOT.Prelude;
 
@@ -20,10 +13,10 @@ namespace TiraxTech;
 [PublicAPI]
 public static class UriError
 {
-    public const string Parse = "uri.parse";
-    public const string InvalidPathChar = "uri.path.invalid-char";
-    public const string PasswordRequired = "uri.credentials.password-required";
-    public const string UserRequired = "uri.credentials.user-required";
+    public const string PARSE = "uri.parse";
+    public const string INVALID_PATH_CHAR = "uri.path.invalid-char";
+    public const string PASSWORD_REQUIRED = "uri.credentials.password-required";
+    public const string USER_REQUIRED = "uri.credentials.user-required";
 }
 
 public sealed record UriCredentials(string User, string Password)
@@ -55,8 +48,8 @@ public sealed record Uri(
 
     // Rendered for an instance that was corrupted via raw `with` (e.g. an invalid Host); construction
     // through From/the builders/SetCredentials/ChangePath always yields a renderable value.
-    const string InvalidUriText = "about:invalid";
-    static readonly SystemUri InvalidSystemUri = new(InvalidUriText);
+    const string INVALID_URI_TEXT = "about:invalid";
+    static readonly SystemUri INVALID_SYSTEM_URI = new(INVALID_URI_TEXT);
 
     static readonly IReadOnlyDictionary<string, int> DefaultPorts = new Dictionary<string, int> {
         { "http", 80 },
@@ -73,14 +66,14 @@ public sealed record Uri(
     /// Parse a URI string.
     /// </summary>
     /// <remarks>
-    /// Returns a failure (code <see cref="UriError.Parse"/>) for malformed input rather than throwing.
+    /// Returns a failure (code <see cref="UriError.PARSE"/>) for malformed input rather than throwing.
     /// Note that dangerous schemes (e.g. <c>javascript:</c>) and dot-segments (<c>..</c>) are accepted as-is —
     /// the library intentionally supports arbitrary/custom schemes; consumers are responsible for vetting
     /// untrusted input and for the path normalisation that <see cref="ToSystemUri"/> applies.
     /// </remarks>
     public static Outcome<Uri> From(string uri) {
         if (Fail(TryCatch(() => new UriBuilder(uri)), out var e, out var builder))
-            return ErrorInfo.New(UriError.Parse, $"Invalid URI: '{uri}'", innerError: e);
+            return ErrorInfo.New(UriError.PARSE, $"Invalid URI: '{uri}'", innerError: e);
 
         if (FailButNotFound(BuildCredentials(builder), out e, out var credentials)) return e.Trace();
 
@@ -109,7 +102,7 @@ public sealed record Uri(
     #region Path methods
 
     /// <summary>
-    /// Append <paramref name="path"/> to the current path. Fails (code <see cref="UriError.InvalidPathChar"/>)
+    /// Append <paramref name="path"/> to the current path. Fails (code <see cref="UriError.INVALID_PATH_CHAR"/>)
     /// if a segment contains <c>?</c> or <c>#</c>.
     /// </summary>
     /// <remarks>
@@ -150,13 +143,13 @@ public sealed record Uri(
     /// <returns>
     /// The <see cref="UriCredentials"/> on success. Returns a <c>NotFound</c> failure when <paramref name="user"/>
     /// is <c>null</c> — this signals "no credentials" and is a normal result rather than an error, so handle it
-    /// with <c>FailButNotFound</c>/<c>IfNotFound</c>. Fails with <see cref="UriError.UserRequired"/> for an empty
-    /// user, or <see cref="UriError.PasswordRequired"/> when a user is set but the password is <c>null</c>.
+    /// with <c>FailButNotFound</c>/<c>IfNotFound</c>. Fails with <see cref="UriError.USER_REQUIRED"/> for an empty
+    /// user, or <see cref="UriError.PASSWORD_REQUIRED"/> when a user is set but the password is <c>null</c>.
     /// </returns>
     public static Outcome<UriCredentials> ValidateCredentials(string? user = null, string? password = null) {
         if (user is null) return ErrorInfo._NotFound();
-        if (user.Length == 0) return new ErrorInfo(UriError.UserRequired, "User name cannot be empty when credentials are set.");
-        if (password is null) return new ErrorInfo(UriError.PasswordRequired, "Password cannot be null when a user is set.");
+        if (user.Length == 0) return new ErrorInfo(UriError.USER_REQUIRED, "User name cannot be empty when credentials are set.");
+        if (password is null) return new ErrorInfo(UriError.PASSWORD_REQUIRED, "Password cannot be null when a user is set.");
         return new UriCredentials(user, password);
     }
 
@@ -165,16 +158,21 @@ public sealed record Uri(
     #region ToString
 
     public override string ToString()
-        => TryCatch(() => CreateUriBuilder().ToString()).IfFail(_ => InvalidUriText);
+        => ToSystemUri().ToString();
 
     public SystemUri ToSystemUri()
-        => TryCatch(() => CreateUriBuilder().Uri).IfFail(_ => InvalidSystemUri);
+        => Success(CreateUriBuilder(), out var uri)
+        && Success(TryCatch(() => uri.Uri), out var safeUri)
+               ? safeUri
+               : INVALID_SYSTEM_URI;
 
-    static readonly char[] InvalidHostChars = ['/', '\\', '?', '#', '@', ' '];
+    static readonly System.Buffers.SearchValues<char> INVALID_HOST_CHARS = System.Buffers.SearchValues.Create("/\\?#@ \t\n\r\v\f\0");
+    Outcome<UriBuilder> CreateUriBuilder() {
+        if (Host.Length == 0
+         || Host.AsSpan().IndexOfAny(INVALID_HOST_CHARS) >= 0
+         || Host[0] == '.')
+            return ErrorInfo.New(INVALID_REQUEST, $"Invalid host: '{Host}'");
 
-    UriBuilder CreateUriBuilder() {
-        if (Host.IndexOfAny(InvalidHostChars) >= 0)
-            throw new FormatException($"Invalid host: '{Host}'");
         var builder = Path.ApplyTo(new UriBuilder(Scheme, Host) {
             UserName = Escape(Credentials?.User),
             Password = Escape(Credentials?.Password)
@@ -184,52 +182,11 @@ public sealed record Uri(
         return builder;
     }
 
-    static IEnumerable<string> ExpandQueryString(KeyValuePair<string, StringValues> kv) {
-        if (kv.Value == StringValues.Empty)
-            yield return Escape(kv.Key);
-        else
-            foreach (var v in kv.Value)
-                yield return $"{Escape(kv.Key)}={Escape(v)}";
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Escape(string? s) => SystemUri.EscapeDataString(s ?? string.Empty);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Unescape(string s) => SystemUri.UnescapeDataString(s);
-
-    #endregion
-}
-
-[PublicAPI]
-public static class TiraxUri
-{
-    #region URI Query Parameters
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static StringValues? Query(this Uri uri, string key)
-        => uri.Path.Query(key);
-
-    public static Uri RemoveQuery(this Uri uri, string key)
-        => uri with { Path = uri.Path.RemoveQuery(key) };
-
-    public static Uri ReplaceQuery(this Uri uri, string key, StringValues? value = null)
-        => uri with { Path = uri.Path.ReplaceQuery(key, value) };
-
-    public static Uri UpdateQuery(this Uri uri, string key, StringValues? value = null)
-        => uri with { Path = uri.Path.UpdateQuery(key, value) };
-
-    public static Uri UpdateQuery(this Uri uri, params (string Key, StringValues Value)[] @params)
-        => uri with { Path = uri.Path.UpdateQuery(@params) };
-
-    public static Uri UpdateQueries(this Uri uri, IEnumerable<KeyValuePair<string, StringValues>> queries)
-        => uri with { Path = uri.Path.UpdateQueries(queries) };
-
-    public static Uri UpdateQueries(this Uri uri, IEnumerable<(string Key, StringValues Value)> queries)
-        => uri with { Path = uri.Path.UpdateQueries(queries) };
-
-    public static Uri ClearQuery(this Uri uri)
-        => uri with { Path = uri.Path.ClearQuery() };
 
     #endregion
 }

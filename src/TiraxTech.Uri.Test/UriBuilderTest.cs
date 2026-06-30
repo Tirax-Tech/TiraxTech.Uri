@@ -1,7 +1,8 @@
-using RZ.Foundation;
+using JetBrains.Annotations;
 
 namespace TiraxTech.UriTest;
 
+[UsedImplicitly(ImplicitUseTargetFlags.Members)]
 public class UriBuilderTest
 {
     const string SimpleUri = "http://www.example.org";
@@ -66,7 +67,7 @@ public class UriBuilderTest
         var uri = Uri.From(SimpleUri).Unwrap();
         var result = uri.ChangePath("path?a=b&123#fragment!");
         await Assert.That(result.IsFail).IsTrue();
-        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.InvalidPathChar);
+        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.INVALID_PATH_CHAR);
     }
 
     #endregion
@@ -136,7 +137,7 @@ public class UriBuilderTest
 
         var missingPassword = uri.SetCredentials("admin", null);
         await Assert.That(missingPassword.IsFail).IsTrue();
-        await Assert.That(missingPassword.UnwrapError().Code).IsEqualTo(UriError.PasswordRequired);
+        await Assert.That(missingPassword.UnwrapError().Code).IsEqualTo(UriError.PASSWORD_REQUIRED);
 
         await Assert.That(newUri.SetCredentials().Unwrap()).IsEqualTo(uri);
         await Assert.That(newUri.SetCredentials(password: null).Unwrap()).IsEqualTo(newUri.SetCredentials().Unwrap());

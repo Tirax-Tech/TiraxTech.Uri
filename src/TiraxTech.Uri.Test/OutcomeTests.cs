@@ -13,7 +13,7 @@ public class OutcomeTests
     {
         var result = Uri.From("ht tp://bad");
         await Assert.That(result.IsFail).IsTrue();
-        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.Parse);
+        await Assert.That(result.UnwrapError().Code).IsEqualTo(UriError.PARSE);
     }
 
     [Test]
@@ -22,7 +22,7 @@ public class OutcomeTests
     {
         var parsed = Uri.From("http://:pwd@host");
         await Assert.That(parsed.IsFail).IsTrue();
-        await Assert.That(parsed.UnwrapError().Code).IsEqualTo(UriError.UserRequired);
+        await Assert.That(parsed.UnwrapError().Code).IsEqualTo(UriError.USER_REQUIRED);
 
         var viaSet = Uri.From("http://host").Unwrap().SetCredentials("", "pwd");
         await Assert.That(viaSet.IsFail).IsTrue();
