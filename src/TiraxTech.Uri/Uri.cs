@@ -58,7 +58,7 @@ public sealed record Uri(
     const string InvalidUriText = "about:invalid";
     static readonly SystemUri InvalidSystemUri = new(InvalidUriText);
 
-    static readonly IReadOnlyDictionary<string, int> DefaultPorts = new Dictionary<string, int>{
+    static readonly IReadOnlyDictionary<string, int> DefaultPorts = new Dictionary<string, int> {
         { "http", 80 },
         { "ws", 80 },
         { "https", 443 },
@@ -78,19 +78,22 @@ public sealed record Uri(
     /// the library intentionally supports arbitrary/custom schemes; consumers are responsible for vetting
     /// untrusted input and for the path normalisation that <see cref="ToSystemUri"/> applies.
     /// </remarks>
-    public static Outcome<Uri> From(string uri) =>
-        from builder in TryCatch(() => new UriBuilder(uri))
-                            .MapFailure(e => new ErrorInfo(UriError.Parse, $"Invalid URI: '{uri}'", innerError: e))
-        from credentials in BuildCredentials(builder)
-        select new Uri(builder.Scheme,
+    public static Outcome<Uri> From(string uri) {
+        if (Fail(TryCatch(() => new UriBuilder(uri)), out var e, out var builder))
+            return ErrorInfo.New(UriError.Parse, $"Invalid URI: '{uri}'", innerError: e);
+
+        if (FailButNotFound(BuildCredentials(builder), out e, out var credentials)) return e.Trace();
+
+        return new Uri(builder.Scheme,
                        credentials,
                        Unescape(builder.Host),
                        NormalizePort(builder),
                        RelativeUri.From(builder));
+    }
 
-    static Outcome<UriCredentials?> BuildCredentials(UriBuilder builder)
+    static Outcome<UriCredentials> BuildCredentials(UriBuilder builder)
         => builder.UserName.Length == 0 && builder.Password.Length == 0
-               ? SuccessOutcome<UriCredentials?>(null)
+               ? ErrorInfo._NotFound()
                : ValidateCredentials(Unescape(builder.UserName), Unescape(builder.Password));
 
     static int? NormalizePort(UriBuilder builder) {
@@ -99,11 +102,11 @@ public sealed record Uri(
     }
 
     public Uri SetPort(int port) => this with { Port = port };
-    public Uri RemovePort() => this with{ Port = null };
+    public Uri RemovePort()      => this with { Port = null };
 
     public Uri SetFragment(string? fragment = null) => this with { Path = Path.SetFragment(fragment) };
 
-#region Path methods
+    #region Path methods
 
     /// <summary>
     /// Append <paramref name="path"/> to the current path. Fails (code <see cref="UriError.InvalidPathChar"/>)
@@ -124,9 +127,9 @@ public sealed record Uri(
     [Obsolete("Use Path.PathOnly instead.")]
     public string PathString() => Path.PathOnly;
 
-#endregion
+    #endregion
 
-#region User Credentials
+    #region User Credentials
 
     /// <summary>
     /// Shortcut for setting credentials.
@@ -134,8 +137,10 @@ public sealed record Uri(
     /// <param name="user">User name can be <c>null</c> to clear credentials.</param>
     /// <param name="password">Password can be <c>null</c> only if <paramref name="user"/> is also <c>null</c></param>
     /// <returns>New <see cref="Uri"/> with credentials set or cleared, or a failure if the pair is invalid.</returns>
-    public Outcome<Uri> SetCredentials(string? user = null, string? password = null)
-        => ValidateCredentials(user, password).Map(creds => this with { Credentials = creds });
+    public Outcome<Uri> SetCredentials(string? user = null, string? password = null) {
+        if (FailButNotFound(ValidateCredentials(user, password), out var e, out var creds)) return e.Trace();
+        return this with { Credentials = creds };
+    }
 
     /// <summary>
     /// Create a valid <see cref="UriCredentials"/> from the given user/password pair.
@@ -143,23 +148,22 @@ public sealed record Uri(
     /// <param name="user">User name can be <c>null</c> to clear credentials, but must be non-empty otherwise.</param>
     /// <param name="password">Password can be <c>null</c> only if <paramref name="user"/> is also <c>null</c>.</param>
     /// <returns>
-    /// <c>null</c> credentials when <paramref name="user"/> is <c>null</c>; otherwise the <see cref="UriCredentials"/>.
-    /// Fails with <see cref="UriError.UserRequired"/> for an empty user, or <see cref="UriError.PasswordRequired"/>
-    /// when a user is set but the password is <c>null</c>.
+    /// The <see cref="UriCredentials"/> on success. Returns a <c>NotFound</c> failure when <paramref name="user"/>
+    /// is <c>null</c> — this signals "no credentials" and is a normal result rather than an error, so handle it
+    /// with <c>FailButNotFound</c>/<c>IfNotFound</c>. Fails with <see cref="UriError.UserRequired"/> for an empty
+    /// user, or <see cref="UriError.PasswordRequired"/> when a user is set but the password is <c>null</c>.
     /// </returns>
-    public static Outcome<UriCredentials?> ValidateCredentials(string? user = null, string? password = null) {
-        if (user is null)
-            return SuccessOutcome<UriCredentials?>(null);
-        if (user.Length == 0)
-            return new ErrorInfo(UriError.UserRequired, "User name cannot be empty when credentials are set.");
-        if (password is null)
-            return new ErrorInfo(UriError.PasswordRequired, "Password cannot be null when a user is set.");
+    public static Outcome<UriCredentials> ValidateCredentials(string? user = null, string? password = null) {
+        if (user is null) return ErrorInfo._NotFound();
+        if (user.Length == 0) return new ErrorInfo(UriError.UserRequired, "User name cannot be empty when credentials are set.");
+        if (password is null) return new ErrorInfo(UriError.PasswordRequired, "Password cannot be null when a user is set.");
         return new UriCredentials(user, password);
     }
 
-#endregion
+    #endregion
 
-#region ToString
+    #region ToString
+
     public override string ToString()
         => TryCatch(() => CreateUriBuilder().ToString()).IfFail(_ => InvalidUriText);
 
@@ -184,7 +188,7 @@ public sealed record Uri(
         if (kv.Value == StringValues.Empty)
             yield return Escape(kv.Key);
         else
-            foreach(var v in kv.Value)
+            foreach (var v in kv.Value)
                 yield return $"{Escape(kv.Key)}={Escape(v)}";
     }
 
@@ -194,7 +198,7 @@ public sealed record Uri(
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Unescape(string s) => SystemUri.UnescapeDataString(s);
 
-#endregion
+    #endregion
 }
 
 [PublicAPI]
@@ -213,7 +217,7 @@ public static class TiraxUri
         => uri with { Path = uri.Path.ReplaceQuery(key, value) };
 
     public static Uri UpdateQuery(this Uri uri, string key, StringValues? value = null)
-        => uri with{ Path = uri.Path.UpdateQuery(key, value) };
+        => uri with { Path = uri.Path.UpdateQuery(key, value) };
 
     public static Uri UpdateQuery(this Uri uri, params (string Key, StringValues Value)[] @params)
         => uri with { Path = uri.Path.UpdateQuery(@params) };

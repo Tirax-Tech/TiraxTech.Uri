@@ -42,16 +42,18 @@ var text = Uri.From(userInput)
                      err => $"bad uri ({err.Code}): {err.Message}");
 ```
 
-The chain above is sugar over `Outcome<T>`'s monadic operators — when you need to interleave other
-`Outcome` steps you can drop down to LINQ or `Bind` directly:
+The chain is sugar over `Outcome<T>`'s combinators (`Map`/`Bind`). When you need to interleave other
+`Outcome` steps, use the Go-style guard pattern (preferred over LINQ for `Outcome<T>`):
 
 ```c#
-using RZ.Foundation;   // LINQ support for Outcome<T>
+using RZ.Foundation;
+using static RZ.Foundation.AOT.Prelude;   // Fail / Success guards
 
-var result =
-    from u    in Uri.Http.Host("example.org")
-    from full in u.ChangePath("test/uri").SetCredentials("user", "password")
-    select full;
+Outcome<Uri> BuildEndpoint(string host) {
+    if (Fail(Uri.Http.Host(host).ChangePath("api/v1"), out var e, out var uri))
+        return e.Trace();
+    return uri.SetFragment("top");
+}
 ```
 
 Adding, removing, and replacing query parameters are total operations (they return `Uri`):

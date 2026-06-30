@@ -167,13 +167,13 @@ public class UriBuilderTest
 
     [Test]
     public async Task UseHttpBuilder(){
-        var uri = (from u in Uri.Http.Host("example.org")
-                   from withPath in u.ChangePath("test/uri")
-                   from withCreds in withPath.SetPort(8000)
-                                             .UpdateQuery(("a", "123"), ("b", "456"))
-                                             .SetFragment("fragment")
-                                             .SetCredentials("user", "password")
-                   select withCreds).Unwrap();
+        var uri = Uri.Http.Host("example.org")
+                     .ChangePath("test/uri")
+                     .SetPort(8000)
+                     .UpdateQuery(("a", "123"), ("b", "456"))
+                     .SetFragment("fragment")
+                     .SetCredentials("user", "password")
+                     .Unwrap();
         await Assert.That(uri.ToString()).IsEqualTo("http://user:password@example.org:8000/test/uri?a=123&b=456#fragment");
     }
 
