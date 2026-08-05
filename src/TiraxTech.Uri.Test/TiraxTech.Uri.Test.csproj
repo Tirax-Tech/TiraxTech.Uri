@@ -14,8 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="RZ.Foundation" Version="8.3.0" />
-    <PackageReference Include="TUnit" Version="1.57.0" />
+    <PackageReference Include="RZ.Foundation" Version="8.4.0" />
+    <PackageReference Include="TUnit" Version="1.63.0" />
   </ItemGroup>
 
   <ItemGroup>
